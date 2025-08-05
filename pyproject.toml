@@ -1,0 +1,147 @@
+[build-system]
+requires = ["hatchling>=1.13.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "storm_checker"
+version = "0.1.0"
+description = "Intelligent Python code quality analysis with business intelligence and gamified learning"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Mathew", email = "mathewstormdev@gmail.com"},
+]
+keywords = [
+    "type-checking",
+    "mypy", 
+    "code-quality",
+    "static-analysis",
+    "developer-tools",
+    "education",
+    "gamification",
+    "python",
+    "linting",
+    "type-safety"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Topic :: Education",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "mypy>=1.0.0",
+    "tomli>=2.0.0;python_version<'3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock>=3.10.0",
+    "pytest-parametrize>=1.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.0.0",
+    "coverage[toml]>=7.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/80-20-Human-In-The-Loop/storm-checker"
+"Bug Tracker" = "https://github.com/80-20-Human-In-The-Loop/storm-checker/issues"
+"Source Code" = "https://github.com/80-20-Human-In-The-Loop/storm-checker"
+
+[project.scripts]
+stormcheck = "scripts.stormcheck:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["cli", "logic", "models", "scripts", "tutorials"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "cli",
+    "logic", 
+    "models",
+    "scripts",
+    "tutorials",
+    "py.typed",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (fast)",
+    "integration: Integration tests (slower)",
+    "slow: Slow tests",
+    "cli: CLI interface tests",
+    "mypy: Tests requiring MyPy",
+]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["cli", "logic", "models", "scripts", "tutorials"]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+pretty = false
+show_error_codes = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+strict_optional = true
+ignore_missing_imports = true
+follow_imports = "normal"
+show_error_context = true
+color_output = true
+error_summary = true

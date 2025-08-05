@@ -1,0 +1,128 @@
+{
+  "total_errors_fixed": 0,
+  "total_sessions": 20,
+  "total_time_spent": 76.835377,
+  "error_history": {
+    "2025-08-01": {
+      "operator": 2,
+      "return-value": 2,
+      "no-any-return": 2,
+      "misc": 2,
+      "assignment": 2,
+      "attr-defined": 2,
+      "var-annotated": 2,
+      "call-arg": 2,
+      "arg-type": 2,
+      "name-defined": 2
+    },
+    "2025-08-05": {
+      "arg-type": 1,
+      "return-value": 1,
+      "var-annotated": 1,
+      "misc": 1,
+      "operator": 1,
+      "no-any-return": 1,
+      "attr-defined": 1,
+      "call-arg": 1,
+      "assignment": 1
+    }
+  },
+  "achievements": [
+    {
+      "id": "first_session",
+      "name": "Hello Types",
+      "description": "Completed your first type checking session",
+      "icon": "\ud83d\udc4b",
+      "category": "learning",
+      "earned_at": "2025-07-31T18:43:55.207746+00:00",
+      "criteria": {
+        "sessions": 1
+      }
+    },
+    {
+      "id": "all_tutorials",
+      "name": "Scholar",
+      "description": "Completed all tutorials",
+      "icon": "\ud83c\udf93",
+      "category": "learning",
+      "earned_at": "2025-07-31T18:43:55.207758+00:00",
+      "criteria": {
+        "tutorials_completed": "all"
+      }
+    },
+    {
+      "id": "speed_demon",
+      "name": "Speed Demon",
+      "description": "Fixed 10 errors in under 5 minutes",
+      "icon": "\u26a1",
+      "category": "speed",
+      "earned_at": "2025-07-31T18:43:55.207760+00:00",
+      "criteria": {
+        "errors_in_time": [
+          10,
+          300
+        ]
+      }
+    },
+    {
+      "id": "quick_learner",
+      "name": "Quick Learner",
+      "description": "Fixed an error within 30 seconds of seeing it",
+      "icon": "\ud83d\ude80",
+      "category": "speed",
+      "earned_at": "2025-07-31T18:43:55.207761+00:00",
+      "criteria": {
+        "quick_fix": 30
+      }
+    },
+    {
+      "id": "no_new_errors",
+      "name": "Clean Coder",
+      "description": "Completed a session without introducing new errors",
+      "icon": "\ud83e\uddf9",
+      "category": "quality",
+      "earned_at": "2025-07-31T18:43:55.207767+00:00",
+      "criteria": {
+        "clean_session": true
+      }
+    },
+    {
+      "id": "comeback",
+      "name": "Comeback Kid",
+      "description": "Fixed errors after a week away",
+      "icon": "\ud83d\udcaa",
+      "category": "motivation",
+      "earned_at": "2025-07-31T18:43:55.207768+00:00",
+      "criteria": {
+        "comeback": 7
+      }
+    },
+    {
+      "id": "error_explorer",
+      "name": "Error Explorer",
+      "description": "Fixed 5 different types of errors",
+      "icon": "\ud83d\udd0d",
+      "category": "diversity",
+      "earned_at": "2025-08-01T15:04:36.005432+00:00",
+      "criteria": {
+        "error_types": 5
+      }
+    },
+    {
+      "id": "error_expert",
+      "name": "Error Expert",
+      "description": "Fixed 10 different types of errors",
+      "icon": "\ud83c\udfa8",
+      "category": "diversity",
+      "earned_at": "2025-08-01T15:04:36.005435+00:00",
+      "criteria": {
+        "error_types": 10
+      }
+    }
+  ],
+  "current_streak": 1,
+  "longest_streak": 2,
+  "last_check_date": "2025-08-05",
+  "files_mastered": [],
+  "tutorial_progress": {}
+}

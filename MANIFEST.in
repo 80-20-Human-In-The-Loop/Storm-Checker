@@ -1,0 +1,31 @@
+# Include important files
+include README.md
+include LICENSE
+include CHANGELOG.md
+include pyproject.toml
+
+# Include all Python files
+recursive-include cli *.py
+recursive-include logic *.py
+recursive-include models *.py
+recursive-include scripts *.py
+recursive-include tutorials *.py
+
+# Include type information
+include py.typed
+
+# Exclude unnecessary files
+global-exclude __pycache__
+global-exclude *.py[co]
+global-exclude .DS_Store
+global-exclude *.so
+global-exclude *.dylib
+recursive-exclude _oldscripts *
+recursive-exclude _research *
+recursive-exclude venv *
+recursive-exclude .git *
+recursive-exclude .mypy_cache *
+recursive-exclude .pytest_cache *
+recursive-exclude htmlcov *
+recursive-exclude .coverage
+recursive-exclude *.egg-info *
