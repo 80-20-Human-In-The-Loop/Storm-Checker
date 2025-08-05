@@ -1,3 +1,5 @@
+[WARNING] This isn't deployed or ready for contributions yet. I am very excited for this project, but my priorities are elsewhere for now.
+
 # 🌩️ Storm Checker
 
 > Smart Python type checking that teaches while it helps

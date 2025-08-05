@@ -20,12 +20,17 @@ import re
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from storm_checker.cli.colors import (
-    ColorPrinter, print_header, print_success, print_error, print_warning, print_info,
-    THEME, PALETTE, RESET, BOLD, DIM, CLEAR_SCREEN, CLEAR_LINE
-)
-from storm_checker.cli.components.border import Border, BorderStyle
-from storm_checker.cli.components.progress_bar import ProgressBar
+try:
+    from storm_checker.cli.colors import (
+        ColorPrinter, print_header, print_success, print_error, print_warning, print_info,
+        THEME, PALETTE, RESET, BOLD, DIM, CLEAR_SCREEN, CLEAR_LINE
+    )
+    from storm_checker.cli.components.border import Border, BorderStyle
+    from storm_checker.cli.components.progress_bar import ProgressBar
+except ImportError as e:
+    print(f"Failed to import storm_checker modules: {e}")
+    print("Please ensure storm_checker is properly installed.")
+    sys.exit(1)
 
 
 class TestRunner:
@@ -154,7 +159,7 @@ class TestRunner:
         
     def _build_pytest_args(self) -> List[str]:
         """Build pytest command line arguments."""
-        args = ["pytest"]
+        args = []
         
         # Add test directory
         args.append("tests/")
@@ -196,6 +201,10 @@ class TestRunner:
             args.append("--tb=short")
             args.append("-r=fEsxXfE")  # Show extra test summary
             
+        # Override quiet from pyproject.toml
+        args.append("-o")
+        args.append("addopts=")  # Clear addopts from config
+        
         return args
     
     def _run_pytest(self, args: List[str]) -> subprocess.CompletedProcess:
@@ -203,171 +212,82 @@ class TestRunner:
         if self.args.verbose and not self.args.quiet:
             print(f"{THEME['info']}Running command:{RESET} {' '.join(args)}")
             print()
+        
+        # Debug: print exact command
+        if self.args.debug:
+            print(f"[DEBUG] Running: {' '.join(args)}")
+        
+        # Try to run with subprocess.run and timeout
+        try:
+            if not self.args.quiet:
+                print_info("Running tests...")
+                if not self.args.verbose:
+                    print("Progress: ", end="", flush=True)
             
-        # Show progress bar if not quiet
-        if not self.args.quiet and not self.args.verbose:
-            progress = ProgressBar(
-                width=40,
-                style="blocks",
-                color_filled="primary",
-                show_percentage=True
-            )
+            # Run pytest with a reasonable timeout
+            start_time = time.time()
             
-            # TODO: Initialize a list to store slow tests.
-            # TODO: Record the start time for each test file.
-            # First pass: collect all test files and get total count
-            collect_result = subprocess.run(
-                args + ["--collect-only", "-q"],
-                capture_output=True,
-                text=True
-            )
+            # Use sys.executable to ensure we use the right Python
+            cmd = [sys.executable, "-m", "pytest"] + args
             
-            # Extract test files and total count
-            test_files = []
-            total_tests = 0
-            for line in collect_result.stdout.split('\n'):
-                if '.py::' in line and 'test' in line:
-                    # Extract file path from collection output
-                    file_path = line.split('::')[0]
-                    if file_path not in test_files:
-                        test_files.append(file_path)
-                elif "collected" in line and "item" in line:
-                    import re
-                    match = re.search(r"collected (\d+) item", line)
-                    if match:
-                        total_tests = int(match.group(1))
+            if self.args.debug:
+                print(f"[DEBUG] Full command: {' '.join(cmd)}")
             
-            # Now run the actual tests with file-based progress tracking
-            process = subprocess.Popen(
-                args,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
-            
-            output_lines = []
-            completed_files = []
-            current_file = None
-            current_file_start_time = None
-            
-            # Track progress bar state - once shown, always update in place
-            progress_shown = False
-            pending_slow_warnings = []  # Store slow test warnings to show later
-            
-            # Process output and update progress at file boundaries
-            for line in process.stdout:
-                output_lines.append(line)
-                
-                # Detect when a test file starts
-                if ".py" in line and "test" in line and "::" not in line and any(char in ".FEsx" for char in line):
-                    parts = line.split()
-                    if parts and ".py" in parts[0]:
-                        file_path = parts[0]
-                        
-                        # If this is a new file, update progress
-                        if file_path != current_file:
-                            # Mark previous file as complete if it exists
-                            if current_file and current_file not in completed_files:
-                                completed_files.append(current_file)
-                                
-                                # Check for slow test file - store warning for later
-                                if current_file_start_time:
-                                    elapsed = time.time() - current_file_start_time
-                                    if elapsed > self.slow_test_threshold:
-                                        pending_slow_warnings.append({
-                                            'file': current_file,
-                                            'duration': elapsed
-                                        })
-                                        self.slow_tests.append({
-                                            'file': current_file,
-                                            'duration': elapsed
-                                        })
-                            
-                            # Update current file and start tracking time
-                            current_file = file_path
-                            current_file_start_time = time.time()
-                            
-                            # Update progress bar based on completed files
-                            if test_files:
-                                progress_percent = int((len(completed_files) / len(test_files)) * 100)
-                            else:
-                                progress_percent = min(len(completed_files) * 10, 95)
-                            
-                            # Calculate available space for the label
-                            # Format: "Running [truncated_path] [✓] [████████████████████] 75%"
-                            # Reserve space for: "Running  [✓] [" + progress_bar + "] 100%"
-                            reserved_space = len("Running  [✓] [") + progress.width + len("] 100%")
-                            available_label_space = max(30, self.terminal_width - reserved_space - 10)  # More generous space
-                            
-                            truncated_path = self._truncate_file_path(current_file, available_label_space)
-                            label = f"Running {truncated_path} [✓]"
-                            progress_str = progress.render(progress_percent, 100, label)
-                            
-                            if progress_shown:
-                                # Always update existing progress bar in place
-                                sys.stdout.write(f"\r\033[K{progress_str}")
-                            else:
-                                # Show progress bar for the first time
-                                sys.stdout.write(progress_str)
-                                progress_shown = True
-                            sys.stdout.flush()
-            
-            process.wait()
-            
-            # Mark final file as complete and check for slow tests
-            if current_file and current_file not in completed_files:
-                completed_files.append(current_file)
-                if current_file_start_time:
-                    elapsed = time.time() - current_file_start_time
-                    if elapsed > self.slow_test_threshold:
-                        pending_slow_warnings.append({
-                            'file': current_file,
-                            'duration': elapsed
-                        })
-                        self.slow_tests.append({
-                            'file': current_file,
-                            'duration': elapsed
-                        })
-            
-            # Show final progress
-            final_progress = progress.render(100, 100, "Tests complete")
-            if progress_shown:
-                sys.stdout.write(f"\r\033[K{final_progress}")
-            else:
-                sys.stdout.write(final_progress)
-            sys.stdout.flush()
-            print()  # New line after final progress
-            
-            # Now show any slow test warnings that were collected
-            for slow_warning in pending_slow_warnings:
-                print(f"{THEME['warning']}⚠️  Slow test file: {slow_warning['file']} took {slow_warning['duration']:.2f}s{RESET}")
-            
-            output = "".join(output_lines)
-            result = subprocess.CompletedProcess(
-                args=args,
-                returncode=process.returncode,
-                stdout=output,
-                stderr=""
-            )
-        else:
-            # Run normally
-            test_start_time = time.time()
             result = subprocess.run(
-                args,
+                cmd,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=300  # 5 minute timeout - 703 tests take time!
             )
-            # For verbose/quiet mode, check overall duration
-            total_duration = time.time() - test_start_time
-            if total_duration > 5.0:  # Warn if total test run is slow
+            
+            elapsed = time.time() - start_time
+            
+            if not self.args.quiet and not self.args.verbose:
+                print(f" Done! ({elapsed:.1f}s)")
+            
+            # Check if tests took too long
+            if elapsed > 5.0:
                 self.slow_tests.append({
                     'file': 'Total test run',
-                    'duration': total_duration
+                    'duration': elapsed
                 })
             
+        except subprocess.TimeoutExpired as e:
+            print()
+            print_error("Tests timed out after 300 seconds!")
+            print_info("This usually indicates a hanging test or infinite loop.")
+            if self.args.debug and e.stdout:
+                print("[DEBUG] Partial output:")
+                # Handle both bytes and string output
+                if isinstance(e.stdout, bytes):
+                    print(e.stdout.decode('utf-8', errors='replace')[:1000])
+                else:
+                    print(e.stdout[:1000])
+            
+            # Create a result from the partial output
+            result = subprocess.CompletedProcess(
+                args=cmd,
+                returncode=1,
+                stdout=e.stdout.decode('utf-8') if isinstance(e.stdout, bytes) else e.stdout or "",
+                stderr=e.stderr.decode('utf-8') if isinstance(e.stderr, bytes) else e.stderr or ""
+            )
+        except Exception as e:
+            print()
+            print_error(f"Unexpected error running tests: {e}")
+            import traceback
+            if self.args.debug:
+                print("[DEBUG] Traceback:")
+                traceback.print_exc()
+            result = subprocess.CompletedProcess(
+                args=args,
+                returncode=1,
+                stdout="",
+                stderr=str(e)
+            )
+        
         # Parse results
-        self._parse_results(result.stdout)
+        if result.stdout:
+            self._parse_results(result.stdout)
         
         return result
     
@@ -963,6 +883,11 @@ def main():
         type=float,
         default=1.0,
         help="Threshold in seconds for slow test detection (default: 1.0s)"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug output for troubleshooting"
     )
     
     args = parser.parse_args()
