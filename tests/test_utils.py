@@ -17,7 +17,7 @@ import time
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from logic.mypy_runner import MypyError, MypyResult
+from storm_checker.logic.mypy_runner import MypyError, MypyResult
 
 
 class TestFileBuilder:

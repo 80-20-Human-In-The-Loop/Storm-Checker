@@ -14,9 +14,9 @@ from enum import Enum
 # Import our components
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from cli.colors import THEME, PALETTE, RESET, BOLD, CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW
-from cli.components.border import Border, BorderStyle
-from cli.components.progress_bar import ProgressBar
+from storm_checker.cli.colors import THEME, PALETTE, RESET, BOLD, CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW
+from storm_checker.cli.components.border import Border, BorderStyle
+from storm_checker.cli.components.progress_bar import ProgressBar
 
 
 class ContentMode(Enum):

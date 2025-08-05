@@ -11,8 +11,8 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from cli.components.border import Border, BorderStyle
-from cli.colors import THEME, RESET
+from storm_checker.cli.components.border import Border, BorderStyle
+from storm_checker.cli.colors import THEME, RESET
 
 
 class TestBorderStyle:

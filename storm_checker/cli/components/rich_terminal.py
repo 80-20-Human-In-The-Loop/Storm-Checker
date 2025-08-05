@@ -30,8 +30,8 @@ except ImportError:
     RICH_AVAILABLE = False
     Console = None
 
-from cli.components.buffered_renderer import BufferedRenderer, RenderMode
-from cli.colors import THEME, RESET
+from storm_checker.cli.components.buffered_renderer import BufferedRenderer, RenderMode
+from storm_checker.cli.colors import THEME, RESET
 
 
 class RichTerminal:

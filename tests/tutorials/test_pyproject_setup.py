@@ -5,7 +5,7 @@ Test the pyproject.toml configuration tutorial.
 """
 
 import pytest
-from tutorials.pyproject_setup import PyprojectSetupTutorial
+from storm_checker.tutorials.pyproject_setup import PyprojectSetupTutorial
 from .base import BaseTutorialTest
 
 

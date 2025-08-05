@@ -14,9 +14,9 @@ from enum import Enum
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cli.components.keyboard_handler import KeyboardHandler, KeyPress
-from cli.components.rich_terminal import RichTerminal
-from cli.components.buffered_renderer import BufferedRenderer, RenderMode
+from storm_checker.cli.components.keyboard_handler import KeyboardHandler, KeyPress
+from storm_checker.cli.components.rich_terminal import RichTerminal
+from storm_checker.cli.components.buffered_renderer import BufferedRenderer, RenderMode
 
 
 class MenuItemType(Enum):

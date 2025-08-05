@@ -8,13 +8,13 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from dataclasses import asdict
 
-from cli.components.interactive_menu import (
+from storm_checker.cli.components.interactive_menu import (
     InteractiveMenu,
     MenuItem,
     MenuItemType,
     demo_interactive_menu
 )
-from cli.components.keyboard_handler import KeyPress, KeyCode
+from storm_checker.cli.components.keyboard_handler import KeyPress, KeyCode
 
 
 class TestMenuItem:
@@ -96,9 +96,9 @@ class TestInteractiveMenu:
     @pytest.fixture
     def mock_menu(self):
         """Create a menu with mocked dependencies."""
-        with patch('cli.components.interactive_menu.KeyboardHandler') as mock_kh:
-            with patch('cli.components.interactive_menu.RichTerminal') as mock_rt:
-                with patch('cli.components.interactive_menu.BufferedRenderer') as mock_br:
+        with patch('storm_checker.cli.components.interactive_menu.KeyboardHandler') as mock_kh:
+            with patch('storm_checker.cli.components.interactive_menu.RichTerminal') as mock_rt:
+                with patch('storm_checker.cli.components.interactive_menu.BufferedRenderer') as mock_br:
                     menu = InteractiveMenu(title="Test Menu", subtitle="Test Subtitle")
                     
                     # Set up mocks
@@ -113,9 +113,9 @@ class TestInteractiveMenu:
     
     def test_menu_initialization_defaults(self):
         """Test menu initialization with default parameters."""
-        with patch('cli.components.interactive_menu.KeyboardHandler'):
-            with patch('cli.components.interactive_menu.RichTerminal'):
-                with patch('cli.components.interactive_menu.BufferedRenderer'):
+        with patch('storm_checker.cli.components.interactive_menu.KeyboardHandler'):
+            with patch('storm_checker.cli.components.interactive_menu.RichTerminal'):
+                with patch('storm_checker.cli.components.interactive_menu.BufferedRenderer'):
                     menu = InteractiveMenu()
                     
                     assert menu.title == "Menu"
@@ -128,9 +128,9 @@ class TestInteractiveMenu:
     
     def test_menu_initialization_custom(self):
         """Test menu initialization with custom parameters."""
-        with patch('cli.components.interactive_menu.KeyboardHandler'):
-            with patch('cli.components.interactive_menu.RichTerminal'):
-                with patch('cli.components.interactive_menu.BufferedRenderer'):
+        with patch('storm_checker.cli.components.interactive_menu.KeyboardHandler'):
+            with patch('storm_checker.cli.components.interactive_menu.RichTerminal'):
+                with patch('storm_checker.cli.components.interactive_menu.BufferedRenderer'):
                     menu = InteractiveMenu(
                         title="Custom Menu",
                         subtitle="Custom Subtitle", 
@@ -436,7 +436,7 @@ class TestInteractiveMenu:
             "[red]No selectable items in menu![/red]", markup=True
         )
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_select_item(self, mock_kh_class, mock_menu):
         """Test running menu and selecting an item."""
         mock_menu.add_item("Test Item", value="test_value")
@@ -455,7 +455,7 @@ class TestInteractiveMenu:
         assert result.text == "Test Item"
         assert result.value == "test_value"
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_navigate_and_select(self, mock_kh_class, mock_menu):
         """Test running menu with navigation then selection."""
         mock_menu.add_item("Item 1", value="item1")
@@ -479,7 +479,7 @@ class TestInteractiveMenu:
         assert result.text == "Item 2"
         assert result.value == "item2"
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_quit_with_q(self, mock_kh_class, mock_menu):
         """Test running menu and quitting with 'q'."""
         mock_menu.add_item("Test Item")
@@ -495,7 +495,7 @@ class TestInteractiveMenu:
         
         assert result is None
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_quit_with_escape(self, mock_kh_class, mock_menu):
         """Test running menu and quitting with Escape."""
         mock_menu.add_item("Test Item")
@@ -511,7 +511,7 @@ class TestInteractiveMenu:
         
         assert result is None
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_with_callback(self, mock_kh_class, mock_menu):
         """Test running menu with on_select callback."""
         mock_menu.add_item("Test Item", value="test_value")
@@ -533,7 +533,7 @@ class TestInteractiveMenu:
         callback.assert_called_once()
         assert callback.call_args[0][0].text == "Test Item"
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_navigation_up_down(self, mock_kh_class, mock_menu):
         """Test running menu with up and down navigation."""
         mock_menu.add_item("Item 1")
@@ -577,7 +577,7 @@ class TestInteractiveMenu:
         
         mock_menu.rich_terminal.cleanup.assert_called_once()
         
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_with_none_key_press(self, mock_kh_class, mock_menu):
         """Test running menu when key_press is None (should continue loop)."""
         mock_menu.add_item("Test Item")
@@ -617,7 +617,7 @@ class TestInteractiveMenu:
         assert result is not None
         assert result.text == "Test Item"
     
-    @patch('cli.components.interactive_menu.KeyboardHandler')
+    @patch('storm_checker.cli.components.interactive_menu.KeyboardHandler')
     def test_run_loop_end_fallback(self, mock_kh_class, mock_menu):
         """Test running menu when loop ends without return (fallback return None)."""
         mock_menu.add_item("Test Item")
@@ -658,8 +658,8 @@ class TestInteractiveMenu:
 
 def test_demo_interactive_menu():
     """Test the demo function."""
-    with patch('cli.colors.print_rich_header') as mock_header:
-        with patch('cli.components.interactive_menu.InteractiveMenu') as mock_menu_class:
+    with patch('storm_checker.cli.colors.print_rich_header') as mock_header:
+        with patch('storm_checker.cli.components.interactive_menu.InteractiveMenu') as mock_menu_class:
             mock_menu = Mock()
             mock_menu_class.return_value = mock_menu
             mock_menu.run.return_value = Mock(text="Test", value="test")
@@ -679,8 +679,8 @@ def test_demo_interactive_menu():
 
 def test_demo_interactive_menu_cancelled():
     """Test the demo function when menu is cancelled."""  
-    with patch('cli.colors.print_rich_header'):
-        with patch('cli.components.interactive_menu.InteractiveMenu') as mock_menu_class:
+    with patch('storm_checker.cli.colors.print_rich_header'):
+        with patch('storm_checker.cli.components.interactive_menu.InteractiveMenu') as mock_menu_class:
             mock_menu = Mock()
             mock_menu_class.return_value = mock_menu
             mock_menu.run.return_value = None  # Cancelled

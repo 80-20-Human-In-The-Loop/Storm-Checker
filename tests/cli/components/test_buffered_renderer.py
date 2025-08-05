@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch, MagicMock
 from io import StringIO
 from collections import deque
 
-from cli.components.buffered_renderer import (
+from storm_checker.cli.components.buffered_renderer import (
     BufferedRenderer, 
     RenderMode, 
     BufferFrame,

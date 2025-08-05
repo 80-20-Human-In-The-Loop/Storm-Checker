@@ -9,10 +9,10 @@ from unittest.mock import Mock, patch
 from collections import Counter
 from typing import Dict, List
 
-from logic.mypy_error_analyzer import (
+from storm_checker.logic.mypy_error_analyzer import (
     ErrorCategory, ErrorExplanation, AnalysisResult, ErrorAnalyzer
 )
-from logic.mypy_runner import MypyError, MypyResult
+from storm_checker.logic.mypy_runner import MypyError, MypyResult
 
 
 class TestErrorCategory:

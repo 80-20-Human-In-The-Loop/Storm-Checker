@@ -1,6 +1,6 @@
 """Storm-Checker data models."""
 
-from models.progress_models import (
+from storm_checker.models.progress_models import (
     Achievement,
     AchievementCategory,
     ProgressData,

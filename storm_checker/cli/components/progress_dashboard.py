@@ -12,8 +12,8 @@ from pathlib import Path
 # Add parent directory to imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cli.colors import THEME, RESET, BOLD
-from cli.components.border import Border, BorderStyle
+from storm_checker.cli.colors import THEME, RESET, BOLD
+from storm_checker.cli.components.border import Border, BorderStyle
 
 
 class ProgressDashboard:

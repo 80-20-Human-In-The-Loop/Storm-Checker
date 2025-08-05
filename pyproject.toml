@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "storm_checker"
-version = "0.1.0"
+version = "0.0.1"
 description = "Intelligent Python code quality analysis with business intelligence and gamified learning"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -68,18 +68,14 @@ dev = [
 "Source Code" = "https://github.com/80-20-Human-In-The-Loop/storm-checker"
 
 [project.scripts]
-stormcheck = "scripts.stormcheck:main"
+stormcheck = "storm_checker.scripts.stormcheck:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["cli", "logic", "models", "scripts", "tutorials"]
+packages = ["storm_checker"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "cli",
-    "logic", 
-    "models",
-    "scripts",
-    "tutorials",
+    "storm_checker",
     "py.typed",
     "README.md",
     "LICENSE",
@@ -108,7 +104,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["cli", "logic", "models", "scripts", "tutorials"]
+source = ["storm_checker"]
 omit = [
     "tests/*",
     "*/tests/*",

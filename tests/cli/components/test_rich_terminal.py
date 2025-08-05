@@ -12,7 +12,7 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from cli.components.rich_terminal import (
+from storm_checker.cli.components.rich_terminal import (
     RichTerminal, ProgressTracker, FallbackProgressTracker,
     LiveDisplay, FallbackLiveDisplay, create_rich_terminal, demo_rich_terminal
 )
@@ -24,7 +24,7 @@ class TestRichTerminal:
     @pytest.fixture
     def mock_buffered_renderer(self):
         """Create mock BufferedRenderer."""
-        with patch('cli.components.rich_terminal.BufferedRenderer') as mock_br:
+        with patch('storm_checker.cli.components.rich_terminal.BufferedRenderer') as mock_br:
             mock_instance = Mock()
             mock_instance.terminal_width = 80
             mock_br.return_value = mock_instance
@@ -33,8 +33,8 @@ class TestRichTerminal:
     @pytest.fixture
     def mock_rich_imports(self):
         """Mock Rich library imports."""
-        with patch('cli.components.rich_terminal.RICH_AVAILABLE', True):
-            with patch('cli.components.rich_terminal.Console') as mock_console:
+        with patch('storm_checker.cli.components.rich_terminal.RICH_AVAILABLE', True):
+            with patch('storm_checker.cli.components.rich_terminal.Console') as mock_console:
                 mock_console_instance = Mock()
                 mock_console.return_value = mock_console_instance
                 yield mock_console_instance
@@ -42,8 +42,8 @@ class TestRichTerminal:
     @pytest.fixture
     def mock_rich_unavailable(self):
         """Mock Rich library as unavailable."""
-        with patch('cli.components.rich_terminal.RICH_AVAILABLE', False):
-            with patch('cli.components.rich_terminal.Console', None):
+        with patch('storm_checker.cli.components.rich_terminal.RICH_AVAILABLE', False):
+            with patch('storm_checker.cli.components.rich_terminal.Console', None):
                 yield
     
     def test_initialization_with_rich_available(self, mock_buffered_renderer, mock_rich_imports):
@@ -147,7 +147,7 @@ class TestRichTerminal:
         terminal = RichTerminal()
         
         # Mock Panel and console.capture
-        with patch('cli.components.rich_terminal.Panel') as mock_panel:
+        with patch('storm_checker.cli.components.rich_terminal.Panel') as mock_panel:
             mock_panel_instance = Mock()
             mock_panel.return_value = mock_panel_instance
             
@@ -193,7 +193,7 @@ class TestRichTerminal:
         """Test print_table method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Table') as mock_table:
+        with patch('storm_checker.cli.components.rich_terminal.Table') as mock_table:
             mock_table_instance = Mock()
             mock_table.return_value = mock_table_instance
             
@@ -224,7 +224,7 @@ class TestRichTerminal:
         """Test print_table method without headers with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Table') as mock_table:
+        with patch('storm_checker.cli.components.rich_terminal.Table') as mock_table:
             mock_table_instance = Mock()
             mock_table.return_value = mock_table_instance
             
@@ -262,7 +262,7 @@ class TestRichTerminal:
         """Test print_markdown method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Markdown') as mock_markdown:
+        with patch('storm_checker.cli.components.rich_terminal.Markdown') as mock_markdown:
             mock_md_instance = Mock()
             mock_markdown.return_value = mock_md_instance
             
@@ -293,7 +293,7 @@ class TestRichTerminal:
         """Test print_code method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Syntax') as mock_syntax:
+        with patch('storm_checker.cli.components.rich_terminal.Syntax') as mock_syntax:
             mock_syntax_instance = Mock()
             mock_syntax.return_value = mock_syntax_instance
             
@@ -329,7 +329,7 @@ class TestRichTerminal:
         """Test print_rule method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Rule') as mock_rule:
+        with patch('storm_checker.cli.components.rich_terminal.Rule') as mock_rule:
             mock_rule_instance = Mock()
             mock_rule.return_value = mock_rule_instance
             
@@ -374,7 +374,7 @@ class TestRichTerminal:
         """Test print_tree method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Tree') as mock_tree:
+        with patch('storm_checker.cli.components.rich_terminal.Tree') as mock_tree:
             mock_tree_instance = Mock()
             mock_tree.return_value = mock_tree_instance
             
@@ -448,7 +448,7 @@ class TestRichTerminal:
         """Test progress context manager with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Progress') as mock_progress_class:
+        with patch('storm_checker.cli.components.rich_terminal.Progress') as mock_progress_class:
             with patch('rich.progress.SpinnerColumn') as mock_spinner:
                 with patch('rich.progress.TextColumn') as mock_text:
                     with patch('rich.progress.BarColumn') as mock_bar:
@@ -476,7 +476,7 @@ class TestRichTerminal:
         """Test live_display context manager with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Live') as mock_live_class:
+        with patch('storm_checker.cli.components.rich_terminal.Live') as mock_live_class:
             mock_live_instance = Mock()
             mock_live_class.return_value.__enter__ = Mock(return_value=mock_live_instance)
             mock_live_class.return_value.__exit__ = Mock(return_value=False)
@@ -500,7 +500,7 @@ class TestRichTerminal:
         """Test prompt method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Prompt') as mock_prompt:
+        with patch('storm_checker.cli.components.rich_terminal.Prompt') as mock_prompt:
             mock_prompt.ask.return_value = "user_response"
             
             result = terminal.prompt("Question?", default="default", choices=["a", "b"])
@@ -544,7 +544,7 @@ class TestRichTerminal:
         """Test confirm method with Rich available."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.Confirm') as mock_confirm:
+        with patch('storm_checker.cli.components.rich_terminal.Confirm') as mock_confirm:
             mock_confirm.ask.return_value = True
             
             result = terminal.confirm("Proceed?", default=False)
@@ -587,7 +587,7 @@ class TestRichTerminal:
         """Test clear_last_frame method."""
         terminal = RichTerminal()
         
-        with patch('cli.components.rich_terminal.RenderMode') as mock_render_mode:
+        with patch('storm_checker.cli.components.rich_terminal.RenderMode') as mock_render_mode:
             mock_render_mode.REPLACE_LAST = "REPLACE_LAST"
             terminal.clear_last_frame()
             
@@ -791,16 +791,16 @@ class TestConvenienceFunctions:
     
     def test_create_rich_terminal(self):
         """Test create_rich_terminal function."""
-        with patch('cli.components.rich_terminal.BufferedRenderer'):
-            with patch('cli.components.rich_terminal.RICH_AVAILABLE', True):
-                with patch('cli.components.rich_terminal.Console'):
+        with patch('storm_checker.cli.components.rich_terminal.BufferedRenderer'):
+            with patch('storm_checker.cli.components.rich_terminal.RICH_AVAILABLE', True):
+                with patch('storm_checker.cli.components.rich_terminal.Console'):
                     terminal = create_rich_terminal(width=100, height=50)
                     
                     assert isinstance(terminal, RichTerminal)
     
     def test_demo_rich_terminal(self):
         """Test demo_rich_terminal function."""
-        with patch('cli.components.rich_terminal.RichTerminal') as mock_terminal_class:
+        with patch('storm_checker.cli.components.rich_terminal.RichTerminal') as mock_terminal_class:
             mock_terminal_instance = Mock()
             # Set up context manager properly
             mock_context_manager = Mock()

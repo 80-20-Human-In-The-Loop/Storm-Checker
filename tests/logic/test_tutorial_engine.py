@@ -5,7 +5,7 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open
 from datetime import datetime
 
-from logic.tutorial_engine import (
+from storm_checker.logic.tutorial_engine import (
     TutorialData, TutorialEngine, TutorialState, TutorialProgress
 )
 
@@ -33,13 +33,13 @@ def sample_tutorial_data():
 @pytest.fixture
 def tutorial_engine(sample_tutorial_data):
     with tempfile.TemporaryDirectory() as temp_dir:
-        with patch('logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
+        with patch('storm_checker.logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
             return TutorialEngine(sample_tutorial_data)
 
 def test_tutorial_engine_initialization(sample_tutorial_data):
     """Test that the TutorialEngine can be initialized."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        with patch('logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
+        with patch('storm_checker.logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
             engine = TutorialEngine(sample_tutorial_data)
             assert isinstance(engine, TutorialEngine)
             assert engine.current_state == TutorialState.WELCOME
@@ -69,7 +69,7 @@ def test_load_progress_existing_file(sample_tutorial_data):
         with open(progress_file, 'w') as f:
             json.dump(existing_progress, f)
         
-        with patch('logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
+        with patch('storm_checker.logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
             engine = TutorialEngine(sample_tutorial_data)
             
             # Should reset progress but keep completion status
@@ -89,7 +89,7 @@ def test_load_progress_corrupted_file(sample_tutorial_data):
         with open(progress_file, 'w') as f:
             f.write("corrupted json data")
         
-        with patch('logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
+        with patch('storm_checker.logic.tutorial_engine.get_data_directory', return_value=Path(temp_dir)):
             engine = TutorialEngine(sample_tutorial_data)
             
             # Should create new progress
@@ -256,7 +256,7 @@ def test_complete_tutorial(tutorial_engine):
     tutorial_engine.save_progress = MagicMock()
     
     # Mock ProgressTracker
-    with patch('logic.progress_tracker.ProgressTracker') as MockTracker:
+    with patch('storm_checker.logic.progress_tracker.ProgressTracker') as MockTracker:
         mock_instance = MagicMock()
         MockTracker.return_value = mock_instance
         
@@ -274,7 +274,7 @@ def test_complete_tutorial_tracker_failure(tutorial_engine):
     tutorial_engine.save_progress = MagicMock()
     
     # Mock ProgressTracker to fail
-    with patch('logic.progress_tracker.ProgressTracker', side_effect=Exception("Tracker error")):
+    with patch('storm_checker.logic.progress_tracker.ProgressTracker', side_effect=Exception("Tracker error")):
         # Should not raise exception
         tutorial_engine.complete_tutorial()
         

@@ -5,7 +5,7 @@ Test the introductory tutorial functionality.
 """
 
 import pytest
-from tutorials.hello_world import HelloWorldTutorial
+from storm_checker.tutorials.hello_world import HelloWorldTutorial
 from .base import BaseTutorialTest
 from unittest.mock import Mock
 

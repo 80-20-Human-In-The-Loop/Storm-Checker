@@ -1,5 +1,5 @@
 import pytest
-from cli.components.tutorial_renderer import TutorialRenderer
+from storm_checker.cli.components.tutorial_renderer import TutorialRenderer
 
 def test_tutorial_renderer_initialization():
     """Test that the TutorialRenderer can be initialized."""

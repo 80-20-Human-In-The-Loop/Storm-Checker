@@ -12,8 +12,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 import pytest
 
-from logic.progress_tracker import Achievement, SessionStats, ProgressData, ProgressTracker
-from logic.mypy_runner import MypyError, MypyResult
+from storm_checker.logic.progress_tracker import Achievement, SessionStats, ProgressData, ProgressTracker
+from storm_checker.logic.mypy_runner import MypyError, MypyResult
 
 
 class TestAchievement:
@@ -369,13 +369,13 @@ class TestProgressTracker:
     @pytest.fixture
     def mock_progress_tracker(self, temp_dir):
         """Create ProgressTracker with mocked dependencies."""
-        with patch('logic.progress_tracker.ensure_directory'):
+        with patch('storm_checker.logic.progress_tracker.ensure_directory'):
             tracker = ProgressTracker(storage_dir=temp_dir)
             yield tracker
     
     def test_initialization_with_default_storage(self):
         """Test ProgressTracker initialization with default storage location."""
-        with patch('logic.progress_tracker.ensure_directory') as mock_ensure:
+        with patch('storm_checker.logic.progress_tracker.ensure_directory') as mock_ensure:
             tracker = ProgressTracker()
             
             assert tracker.storage_dir == Path(".stormchecker/progress")
@@ -389,7 +389,7 @@ class TestProgressTracker:
     
     def test_initialization_with_custom_storage(self, temp_dir):
         """Test ProgressTracker initialization with custom storage location."""
-        with patch('logic.progress_tracker.ensure_directory') as mock_ensure:
+        with patch('storm_checker.logic.progress_tracker.ensure_directory') as mock_ensure:
             tracker = ProgressTracker(storage_dir=temp_dir)
             
             assert tracker.storage_dir == temp_dir
@@ -446,7 +446,7 @@ class TestProgressTracker:
         saved_data = json.loads(progress_file.read_text())
         assert saved_data["total_errors_fixed"] == 42
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_start_session(self, mock_datetime, mock_progress_tracker):
         """Test starting a new session."""
         # Mock datetime to return consistent values
@@ -470,7 +470,7 @@ class TestProgressTracker:
         with pytest.raises(ValueError, match="No active session to end"):
             mock_progress_tracker.end_session(mock_result)
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_end_session_with_active_session(self, mock_datetime, mock_progress_tracker, temp_dir):
         """Test ending an active session successfully."""
         # Setup mock session
@@ -522,7 +522,7 @@ class TestProgressTracker:
         mock_error = Mock(spec=MypyError)
         mock_error.error_code = "no-untyped-def"
         
-        with patch('logic.progress_tracker.datetime') as mock_datetime:
+        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
             mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
             
             mock_progress_tracker.record_fix(mock_error)
@@ -545,7 +545,7 @@ class TestProgressTracker:
         mock_error = Mock(spec=MypyError)
         mock_error.error_code = "attr-defined"
         
-        with patch('logic.progress_tracker.datetime') as mock_datetime:
+        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
             mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
             
             mock_progress_tracker.record_fix(mock_error, fix_time=30.5)
@@ -562,7 +562,7 @@ class TestProgressTracker:
         mock_error = Mock(spec=MypyError)
         mock_error.error_code = None
         
-        with patch('logic.progress_tracker.datetime') as mock_datetime:
+        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
             mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
             
             mock_progress_tracker.record_fix(mock_error)
@@ -591,7 +591,7 @@ class TestProgressTracker:
     
     def test_record_error_type_encountered(self, mock_progress_tracker):
         """Test recording error type encountered."""
-        with patch('logic.progress_tracker.datetime') as mock_datetime:
+        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
             mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
             
             with patch.object(mock_progress_tracker, 'save_progress') as mock_save:
@@ -635,7 +635,7 @@ class TestProgressTracker:
         mock_progress_tracker.update_tutorial_progress("tutorial2", 150.0)
         assert mock_progress_tracker.progress_data.tutorial_progress["tutorial2"] == 100.0
     
-    @patch('logic.progress_tracker.format_time_delta')
+    @patch('storm_checker.logic.progress_tracker.format_time_delta')
     def test_get_stats_summary(self, mock_format_time, mock_progress_tracker):
         """Test getting statistics summary."""
         # Setup test data
@@ -706,7 +706,7 @@ class TestProgressTracker:
         # Should have multiple error-related achievements
         assert len(achievements) > 0
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_update_streak_first_check(self, mock_datetime, mock_progress_tracker):
         """Test updating streak for first check."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -717,7 +717,7 @@ class TestProgressTracker:
         assert mock_progress_tracker.progress_data.longest_streak == 1
         assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_update_streak_same_day(self, mock_datetime, mock_progress_tracker):
         """Test updating streak on same day (no change)."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -730,7 +730,7 @@ class TestProgressTracker:
         assert mock_progress_tracker.progress_data.current_streak == 5
         assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_update_streak_consecutive_day(self, mock_datetime, mock_progress_tracker):
         """Test updating streak on consecutive day."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -744,7 +744,7 @@ class TestProgressTracker:
         assert mock_progress_tracker.progress_data.longest_streak == 7  # Not exceeded yet
         assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_update_streak_broken(self, mock_datetime, mock_progress_tracker):
         """Test streak reset when broken."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -758,7 +758,7 @@ class TestProgressTracker:
         assert mock_progress_tracker.progress_data.longest_streak == 7  # Preserved
         assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_update_streak_new_longest(self, mock_datetime, mock_progress_tracker):
         """Test updating longest streak record."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -771,7 +771,7 @@ class TestProgressTracker:
         assert mock_progress_tracker.progress_data.current_streak == 8
         assert mock_progress_tracker.progress_data.longest_streak == 8  # New record
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_calculate_velocity(self, mock_datetime, mock_progress_tracker):
         """Test calculating velocity over recent period."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -806,7 +806,7 @@ class TestProgressTracker:
             
             assert len(mock_progress_tracker.progress_data.achievements) == original_count
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_check_achievements_new_achievement_earned(self, mock_datetime, mock_progress_tracker):
         """Test checking achievements when new one is earned."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
@@ -935,7 +935,7 @@ class TestProgressTracker:
                                 criteria={"errors_fixed": 15, "sessions": 3})
         assert not mock_progress_tracker._meets_criteria(achievement)
     
-    @patch('logic.progress_tracker.datetime')
+    @patch('storm_checker.logic.progress_tracker.datetime')
     def test_export_progress_report(self, mock_datetime, mock_progress_tracker, temp_dir):
         """Test exporting progress report."""
         mock_datetime.now.return_value = datetime(2024, 1, 15, 12, 30, tzinfo=timezone.utc)

@@ -14,15 +14,15 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from logic.progress_tracker import ProgressTracker
+from storm_checker.logic.progress_tracker import ProgressTracker
 
 # Import our system components
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from cli.user_input.multiple_choice import MultipleChoice, Question
-from cli.components.slideshow import Slideshow, Slide, ContentMode
-from cli.colors import THEME, RESET, BOLD, CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW
-from logic.utils import get_data_directory, ensure_directory
+from storm_checker.cli.user_input.multiple_choice import MultipleChoice, Question
+from storm_checker.cli.components.slideshow import Slideshow, Slide, ContentMode
+from storm_checker.cli.colors import THEME, RESET, BOLD, CLEAR_SCREEN, CURSOR_HIDE, CURSOR_SHOW
+from storm_checker.logic.utils import get_data_directory, ensure_directory
 
 # Legacy color mappings for compatibility
 LEARN_BLUE = THEME["learn"].ansi

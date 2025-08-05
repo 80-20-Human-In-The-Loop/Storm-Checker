@@ -1,5 +1,5 @@
 import pytest
-from logic.question_engine import Question, QuestionEngine, QuestionState
+from storm_checker.logic.question_engine import Question, QuestionEngine, QuestionState
 
 @pytest.fixture
 def sample_question():

@@ -184,7 +184,7 @@ def test_demo_rich_integration_with_error():
     
     if cli.colors.RICH_AVAILABLE:
         # Mock to make the demo fail and trigger exception handler
-        with patch('cli.colors.demo_colors') as mock_demo:
+        with patch('storm_checker.cli.colors.demo_colors') as mock_demo:
             # First make Console creation succeed but table operations fail
             with patch('rich.table.Table') as MockTable:
                 MockTable.side_effect = Exception("Table creation failed")

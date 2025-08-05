@@ -1,5 +1,5 @@
 import pytest
-from logic.progress_tracker_v2 import EnhancedProgressTracker
+from storm_checker.logic.progress_tracker_v2 import EnhancedProgressTracker
 
 def test_enhanced_progress_tracker_initialization():
     """Test that the EnhancedProgressTracker can be initialized."""

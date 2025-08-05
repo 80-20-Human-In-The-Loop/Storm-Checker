@@ -70,7 +70,7 @@ def test_rich_import_error():
 
 def test_get_rich_theme_no_rich():
     """Test get_rich_theme when Rich is not available."""
-    with patch('cli.colors.RICH_AVAILABLE', False):
+    with patch('storm_checker.cli.colors.RICH_AVAILABLE', False):
         from cli.colors import get_rich_theme
         theme = get_rich_theme()
         assert theme is None
@@ -78,7 +78,7 @@ def test_get_rich_theme_no_rich():
 
 def test_get_rich_color_no_rich():
     """Test get_rich_color when Rich is not available."""
-    with patch('cli.colors.RICH_AVAILABLE', False):
+    with patch('storm_checker.cli.colors.RICH_AVAILABLE', False):
         from cli.colors import get_rich_color
         # Should return None when Rich not available (line 334)
         color = get_rich_color("primary")
@@ -87,7 +87,7 @@ def test_get_rich_color_no_rich():
 
 def test_create_rich_style_no_rich():
     """Test create_rich_style when Rich is not available."""  
-    with patch('cli.colors.RICH_AVAILABLE', False):
+    with patch('storm_checker.cli.colors.RICH_AVAILABLE', False):
         from cli.colors import create_rich_style
         # Should return None when Rich not available (line 352)
         style = create_rich_style("primary", bold=True)
@@ -229,7 +229,7 @@ def test_print_rich_learn_exception():
 
 def test_demo_rich_integration_no_rich():
     """Test demo_rich_integration when Rich is not available."""
-    with patch('cli.colors.RICH_AVAILABLE', False):
+    with patch('storm_checker.cli.colors.RICH_AVAILABLE', False):
         from cli.colors import demo_rich_integration
         import io
         import sys
@@ -276,7 +276,7 @@ def test_enhanced_color_printer_rich_markup_edge_cases():
     
     if RICH_AVAILABLE:
         # Test with no color found (line 397)
-        with patch('cli.colors.get_rich_color', return_value=None):
+        with patch('storm_checker.cli.colors.get_rich_color', return_value=None):
             result = EnhancedColorPrinter.rich_text("Test", "invalid")
             assert result == "Test"  # Should return plain text
 
@@ -284,7 +284,7 @@ def test_enhanced_color_printer_rich_markup_edge_cases():
 def test_enhanced_color_printer_fallback_no_rich():
     """Test EnhancedColorPrinter fallback when RICH_AVAILABLE is False."""
     # Test lines 374-376
-    with patch('cli.colors.RICH_AVAILABLE', False):
+    with patch('storm_checker.cli.colors.RICH_AVAILABLE', False):
         from cli.colors import EnhancedColorPrinter
         
         # Test with style in the list

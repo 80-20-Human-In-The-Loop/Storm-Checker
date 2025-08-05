@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from logic.mypy_runner import MypyError, MypyResult, MypyRunner
+from storm_checker.logic.mypy_runner import MypyError, MypyResult, MypyRunner
 from tests.test_utils import TestFileBuilder, temporary_cwd
 
 
@@ -478,7 +478,7 @@ def good_function(x):
             mock_result = MypyResult(success=True, files_checked=5)
             mock_run.return_value = mock_result
             
-            with patch('logic.mypy_runner.find_python_files') as mock_find:
+            with patch('storm_checker.logic.mypy_runner.find_python_files') as mock_find:
                 mock_find.return_value = [Path(f"test{i}.py") for i in range(5)]
                 
                 result = runner.check_project(keywords="test")

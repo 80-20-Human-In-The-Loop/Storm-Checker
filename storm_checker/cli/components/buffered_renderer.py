@@ -14,7 +14,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 
-from cli.colors import THEME, RESET, CURSOR_HIDE, CURSOR_SHOW
+from storm_checker.cli.colors import THEME, RESET, CURSOR_HIDE, CURSOR_SHOW
 
 
 class RenderMode(Enum):

@@ -14,11 +14,11 @@ from typing import Optional
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cli.colors import THEME, RESET
-from cli.components.tutorial_renderer import TutorialRenderer
-from cli.components.question_renderer import QuestionRenderer
-from logic.tutorial_engine import TutorialEngine, TutorialState, TutorialData
-from logic.question_engine import QuestionEngine
+from storm_checker.cli.colors import THEME, RESET
+from storm_checker.cli.components.tutorial_renderer import TutorialRenderer
+from storm_checker.cli.components.question_renderer import QuestionRenderer
+from storm_checker.logic.tutorial_engine import TutorialEngine, TutorialState, TutorialData
+from storm_checker.logic.question_engine import QuestionEngine
 
 
 class TutorialController:

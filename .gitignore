@@ -162,3 +162,5 @@ _oldscripts/
 
 # Claude Code settings
 .claude/
+# Environment variables
+.env

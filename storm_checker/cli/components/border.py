@@ -13,7 +13,7 @@ from typing import List, Optional, Tuple
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from cli.colors import THEME, RESET, BOLD
+from storm_checker.cli.colors import THEME, RESET, BOLD
 
 
 class BorderStyle(Enum):

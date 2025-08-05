@@ -52,7 +52,7 @@ def test_print_rich_success_console_print_fails():
     
     if RICH_AVAILABLE:
         # Create a console that fails on print
-        with patch('cli.colors.Console') as MockConsole:
+        with patch('storm_checker.cli.colors.Console') as MockConsole:
             mock_instance = MagicMock()
             mock_instance.print.side_effect = Exception("Print failed")
             MockConsole.return_value = mock_instance
@@ -77,7 +77,7 @@ def test_print_rich_error_console_print_fails():
     from cli.colors import RICH_AVAILABLE
     
     if RICH_AVAILABLE:
-        with patch('cli.colors.Console') as MockConsole:
+        with patch('storm_checker.cli.colors.Console') as MockConsole:
             mock_instance = MagicMock()
             mock_instance.print.side_effect = Exception("Print failed")
             MockConsole.return_value = mock_instance
@@ -101,7 +101,7 @@ def test_print_rich_warning_console_print_fails():
     from cli.colors import RICH_AVAILABLE
     
     if RICH_AVAILABLE:
-        with patch('cli.colors.Console') as MockConsole:
+        with patch('storm_checker.cli.colors.Console') as MockConsole:
             mock_instance = MagicMock()
             mock_instance.print.side_effect = Exception("Print failed")
             MockConsole.return_value = mock_instance
@@ -125,7 +125,7 @@ def test_print_rich_info_console_print_fails():
     from cli.colors import RICH_AVAILABLE
     
     if RICH_AVAILABLE:
-        with patch('cli.colors.Console') as MockConsole:
+        with patch('storm_checker.cli.colors.Console') as MockConsole:
             mock_instance = MagicMock()
             mock_instance.print.side_effect = Exception("Print failed")
             MockConsole.return_value = mock_instance
@@ -149,7 +149,7 @@ def test_print_rich_learn_console_print_fails():
     from cli.colors import RICH_AVAILABLE
     
     if RICH_AVAILABLE:
-        with patch('cli.colors.Console') as MockConsole:
+        with patch('storm_checker.cli.colors.Console') as MockConsole:
             mock_instance = MagicMock()
             mock_instance.print.side_effect = Exception("Print failed")
             MockConsole.return_value = mock_instance

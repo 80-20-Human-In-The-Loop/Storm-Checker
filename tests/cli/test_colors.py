@@ -11,7 +11,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cli.colors import (
+from storm_checker.cli.colors import (
     Color, PALETTE, THEME, RESET, BOLD, ColorPrinter,
     print_header, print_success, print_error, print_warning, print_info
 )
@@ -557,7 +557,7 @@ def test_print_rich_functions_with_rich_available():
     
     try:
         # Test print_rich_header with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console), \
              patch('rich.panel.Panel', return_value=mock_panel), \
              patch('rich.text.Text', mock_text), \
@@ -569,7 +569,7 @@ def test_print_rich_functions_with_rich_available():
             mock_console.print.assert_called_once()
         
         # Test print_rich_success with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console):
             
             sys.stdout = io.StringIO()
@@ -578,7 +578,7 @@ def test_print_rich_functions_with_rich_available():
             mock_console.print.assert_called()
         
         # Test print_rich_error with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console):
             
             sys.stdout = io.StringIO()
@@ -587,7 +587,7 @@ def test_print_rich_functions_with_rich_available():
             mock_console.print.assert_called()
         
         # Test print_rich_warning with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console):
             
             sys.stdout = io.StringIO()
@@ -596,7 +596,7 @@ def test_print_rich_functions_with_rich_available():
             mock_console.print.assert_called()
         
         # Test print_rich_info with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console):
             
             sys.stdout = io.StringIO()
@@ -605,7 +605,7 @@ def test_print_rich_functions_with_rich_available():
             mock_console.print.assert_called()
         
         # Test print_rich_learn with Rich available (line 517)
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console):
             
             sys.stdout = io.StringIO()
@@ -635,12 +635,12 @@ def test_demo_rich_integration_success():
     
     try:
         # Test demo_rich_integration with Rich available
-        with patch('cli.colors.RICH_AVAILABLE', True), \
+        with patch('storm_checker.cli.colors.RICH_AVAILABLE', True), \
              patch('rich.console.Console', return_value=mock_console), \
              patch('rich.table.Table', return_value=mock_table), \
              patch('rich.panel.Panel', return_value=mock_panel), \
              patch('rich.text.Text', mock_text), \
-             patch('cli.colors.get_rich_theme', return_value=MagicMock()):
+             patch('storm_checker.cli.colors.get_rich_theme', return_value=MagicMock()):
             
             sys.stdout = io.StringIO()
             demo_rich_integration()

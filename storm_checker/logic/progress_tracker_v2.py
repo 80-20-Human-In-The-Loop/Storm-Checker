@@ -17,7 +17,7 @@ from collections import defaultdict
 
 from .utils import get_data_directory, ensure_directory, format_time_delta
 from .mypy_runner import MypyError, MypyResult
-from models.progress_models import (
+from storm_checker.models.progress_models import (
     ProgressData, UserStats, SessionStats, DailyStats,
     TutorialProgress, AchievementProgress, CodeQualityMetrics,
     Achievement, AchievementCategory, ACHIEVEMENTS

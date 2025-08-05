@@ -17,8 +17,8 @@ import json
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from logic.mypy_runner import MypyError, MypyResult
-from models.progress_models import (
+from storm_checker.logic.mypy_runner import MypyError, MypyResult
+from storm_checker.models.progress_models import (
     Achievement, AchievementCategory, SessionStats, 
     DailyStats, TutorialProgress, ProgressData
 )

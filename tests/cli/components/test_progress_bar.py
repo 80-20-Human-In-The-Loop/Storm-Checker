@@ -12,8 +12,8 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from cli.components.progress_bar import ProgressBar, SpinnerBar
-from cli.colors import THEME, PALETTE, RESET
+from storm_checker.cli.components.progress_bar import ProgressBar, SpinnerBar
+from storm_checker.cli.colors import THEME, PALETTE, RESET
 
 
 class TestProgressBar:

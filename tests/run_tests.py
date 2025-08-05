@@ -20,12 +20,12 @@ import re
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from cli.colors import (
+from storm_checker.cli.colors import (
     ColorPrinter, print_header, print_success, print_error, print_warning, print_info,
     THEME, PALETTE, RESET, BOLD, DIM, CLEAR_SCREEN, CLEAR_LINE
 )
-from cli.components.border import Border, BorderStyle
-from cli.components.progress_bar import ProgressBar
+from storm_checker.cli.components.border import Border, BorderStyle
+from storm_checker.cli.components.progress_bar import ProgressBar
 
 
 class TestRunner:
@@ -176,11 +176,7 @@ class TestRunner:
         # Coverage
         if self.args.coverage:
             args.extend([
-                "--cov=cli",
-                "--cov=logic",
-                "--cov=models",
-                "--cov=scripts",
-                "--cov=tutorials",
+                "--cov=storm_checker",
                 "--cov-report=html",
                 "--cov-report=term-missing"
             ])

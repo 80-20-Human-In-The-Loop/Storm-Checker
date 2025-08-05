@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock, mock_open
 from typing import Dict, List
 
-from tutorials.base_tutorial import (
+from storm_checker.tutorials.base_tutorial import (
     BaseTutorial, 
     TutorialProgress,
     THEME,
@@ -22,7 +22,7 @@ from tutorials.base_tutorial import (
     CURSOR_HIDE,
     CURSOR_SHOW
 )
-from cli.user_input.multiple_choice import Question
+from storm_checker.cli.user_input.multiple_choice import Question
 
 
 class ConcreteTutorial(BaseTutorial):
@@ -147,8 +147,8 @@ class TestBaseTutorial:
     @pytest.fixture
     def mock_tutorial(self, temp_dir):
         """Create a concrete tutorial instance with mocked directories."""
-        with patch('tutorials.base_tutorial.get_data_directory', return_value=temp_dir):
-            with patch('tutorials.base_tutorial.ensure_directory', return_value=temp_dir / "tutorial_progress"):
+        with patch('storm_checker.tutorials.base_tutorial.get_data_directory', return_value=temp_dir):
+            with patch('storm_checker.tutorials.base_tutorial.ensure_directory', return_value=temp_dir / "tutorial_progress"):
                 tutorial = ConcreteTutorial()
                 yield tutorial
     
@@ -188,8 +188,8 @@ class TestBaseTutorial:
             def questions(self):
                 return {}
         
-        with patch('tutorials.base_tutorial.get_data_directory'):
-            with patch('tutorials.base_tutorial.ensure_directory'):
+        with patch('storm_checker.tutorials.base_tutorial.get_data_directory'):
+            with patch('storm_checker.tutorials.base_tutorial.ensure_directory'):
                 tutorial = MinimalTutorial()
                 
                 # Test default implementations
@@ -217,8 +217,8 @@ class TestBaseTutorial:
             def questions(self):
                 return {}
         
-        with patch('tutorials.base_tutorial.get_data_directory'):
-            with patch('tutorials.base_tutorial.ensure_directory'):
+        with patch('storm_checker.tutorials.base_tutorial.get_data_directory'):
+            with patch('storm_checker.tutorials.base_tutorial.ensure_directory'):
                 tutorial = MyAwesomeTutorial()
                 assert tutorial.id == "myawesome"  # MyAwesomeTutorial -> myawesome
     
@@ -308,7 +308,7 @@ class TestBaseTutorial:
         assert saved_data["pages_completed"] == 2
         assert saved_data["questions_correct"] == 1
     
-    @patch('tutorials.base_tutorial.ProgressTracker')
+    @patch('storm_checker.tutorials.base_tutorial.ProgressTracker')
     def test_save_progress_with_global_tracker(self, mock_progress_tracker_class, mock_tutorial):
         """Test save_progress updates global progress tracker."""
         mock_tracker = Mock()
@@ -328,7 +328,7 @@ class TestBaseTutorial:
             (2 / 3) * 100  # 66.67%
         )
     
-    @patch('tutorials.base_tutorial.ProgressTracker')
+    @patch('storm_checker.tutorials.base_tutorial.ProgressTracker')
     def test_save_progress_tracker_failure_graceful(self, mock_progress_tracker_class, mock_tutorial):
         """Test save_progress handles tracker failures gracefully."""
         mock_progress_tracker_class.side_effect = Exception("Tracker failed")
@@ -394,7 +394,7 @@ class TestBaseTutorial:
         result = mock_tutorial.display_page(999)  # Beyond available pages
         assert result == True  # Should handle gracefully
     
-    @patch('tutorials.base_tutorial.MultipleChoice')
+    @patch('storm_checker.tutorials.base_tutorial.MultipleChoice')
     def test_display_page_with_question_enter_choice(self, mock_mc_class, mock_tutorial):
         """Test display_page with question when user presses Enter."""
         # Set up mock for MultipleChoice
@@ -432,7 +432,7 @@ class TestBaseTutorial:
                     
                     assert result == True  # Should return True for back
     
-    @patch('tutorials.base_tutorial.MultipleChoice')
+    @patch('storm_checker.tutorials.base_tutorial.MultipleChoice')
     def test_display_page_with_question_incorrect_answer_mid_tutorial(self, mock_mc_class, mock_tutorial):
         """Test display_page with incorrect answer in middle of tutorial (should boot user)."""
         # Set up mock for MultipleChoice
@@ -449,7 +449,7 @@ class TestBaseTutorial:
                         assert result == False  # Should boot user out
                         assert mock_tutorial.progress.questions_correct == 0  # No increment
     
-    @patch('tutorials.base_tutorial.MultipleChoice')
+    @patch('storm_checker.tutorials.base_tutorial.MultipleChoice')
     def test_display_page_with_question_incorrect_answer_final_page(self, mock_mc_class, mock_tutorial):
         """Test display_page with incorrect answer on final page (should not boot user)."""
         # Set up mock for MultipleChoice
@@ -552,9 +552,9 @@ class TestBaseTutorial:
                 assert "test-error" in message
                 assert "another-error" in message
     
-    @patch('cli.interactive.tutorial_controller.TutorialController')
-    @patch('logic.tutorial_engine.TutorialData')
-    @patch('logic.question_engine.Question')
+    @patch('storm_checker.cli.interactive.tutorial_controller.TutorialController')
+    @patch('storm_checker.logic.tutorial_engine.TutorialData')
+    @patch('storm_checker.logic.question_engine.Question')
     def test_run_method_execution(self, mock_question, mock_tutorial_data, mock_controller, mock_tutorial):
         """Test the run method creates proper objects and calls controller."""
         mock_controller_instance = Mock()
@@ -610,8 +610,8 @@ class TestBaseTutorial:
     
     def test_progress_directory_creation(self, temp_dir):
         """Test that progress directory is created properly."""
-        with patch('tutorials.base_tutorial.get_data_directory', return_value=temp_dir):
-            with patch('tutorials.base_tutorial.ensure_directory') as mock_ensure:
+        with patch('storm_checker.tutorials.base_tutorial.get_data_directory', return_value=temp_dir):
+            with patch('storm_checker.tutorials.base_tutorial.ensure_directory') as mock_ensure:
                 mock_ensure.return_value = temp_dir / "tutorial_progress"
                 
                 ConcreteTutorial()

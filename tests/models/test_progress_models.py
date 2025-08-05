@@ -13,7 +13,7 @@ import json
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from models.progress_models import (
+from storm_checker.models.progress_models import (
     AchievementCategory, SessionStats, DailyStats, TutorialProgress,
     Achievement, ProgressData, UserStats, AchievementProgress, CodeQualityMetrics
 )

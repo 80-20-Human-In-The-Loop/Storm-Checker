@@ -7,12 +7,12 @@ When installed via pip, the entry point in pyproject.toml is used instead.
 import sys
 from pathlib import Path
 
-# Add scripts directory to path
-scripts_dir = Path(__file__).parent / "scripts"
-sys.path.insert(0, str(scripts_dir))
+# Add project root to path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
 
 # Import and run main
-from stormcheck import main
+from storm_checker.scripts.stormcheck import main
 
 if __name__ == "__main__":
     main()

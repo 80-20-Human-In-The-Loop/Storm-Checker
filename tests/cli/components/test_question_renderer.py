@@ -1,6 +1,6 @@
 import pytest
-from cli.components.question_renderer import QuestionRenderer
-from cli.colors import THEME, RESET, BOLD
+from storm_checker.cli.components.question_renderer import QuestionRenderer
+from storm_checker.cli.colors import THEME, RESET, BOLD
 
 def test_question_renderer_initialization():
     """Test that the QuestionRenderer can be initialized."""

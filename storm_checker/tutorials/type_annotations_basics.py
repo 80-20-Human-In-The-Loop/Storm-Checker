@@ -6,7 +6,7 @@ Learn the fundamentals of Python type annotations and how they improve code qual
 """
 
 from typing import Dict
-from cli.user_input.multiple_choice import Question
+from storm_checker.cli.user_input.multiple_choice import Question
 from .base_tutorial import BaseTutorial
 
 

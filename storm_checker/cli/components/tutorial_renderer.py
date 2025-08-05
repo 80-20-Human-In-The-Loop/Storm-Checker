@@ -13,10 +13,10 @@ from typing import Dict, Any, Optional, List
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from cli.colors import THEME, RESET, BOLD, CLEAR_SCREEN
-from cli.components.border import Border, BorderStyle
-from cli.components.progress_bar import ProgressBar
-from logic.tutorial_engine import TutorialState
+from storm_checker.cli.colors import THEME, RESET, BOLD, CLEAR_SCREEN
+from storm_checker.cli.components.border import Border, BorderStyle
+from storm_checker.cli.components.progress_bar import ProgressBar
+from storm_checker.logic.tutorial_engine import TutorialState
 
 
 class TutorialRenderer:

@@ -9,7 +9,7 @@ import sys
 from unittest.mock import Mock, patch, MagicMock, mock_open
 from io import StringIO
 
-from cli.components.keyboard_handler import (
+from storm_checker.cli.components.keyboard_handler import (
     KeyCode, KeyPress, KeyboardHandler,
     wait_for_any_key, wait_for_specific_key, create_navigation_handler,
     demo_keyboard_handler
@@ -133,10 +133,10 @@ class TestKeyboardHandler:
         assert sequences['\x1b[B'] == KeyCode.DOWN
         assert sequences['\x1bOP'] == KeyCode.F1
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.termios.tcgetattr')
-    @patch('cli.components.keyboard_handler.tty.setraw')
-    @patch('cli.components.keyboard_handler.sys.stdin.fileno')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.termios.tcgetattr')
+    @patch('storm_checker.cli.components.keyboard_handler.tty.setraw')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.fileno')
     def test_enter_raw_mode(self, mock_fileno, mock_setraw, mock_tcgetattr, mock_isatty, handler):
         """Test entering raw terminal mode."""
         mock_isatty.return_value = True
@@ -150,7 +150,7 @@ class TestKeyboardHandler:
         mock_tcgetattr.assert_called_once_with(0)
         mock_setraw.assert_called_once_with(0)
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
     def test_enter_raw_mode_not_tty(self, mock_isatty, handler):
         """Test entering raw mode when not a TTY."""
         mock_isatty.return_value = False
@@ -165,13 +165,13 @@ class TestKeyboardHandler:
         handler._raw_mode_active = True
         handler._original_settings = ['old', 'settings']
         
-        with patch('cli.components.keyboard_handler.sys.stdin.isatty', return_value=True):
-            with patch('cli.components.keyboard_handler.termios.tcgetattr') as mock_tcgetattr:
+        with patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty', return_value=True):
+            with patch('storm_checker.cli.components.keyboard_handler.termios.tcgetattr') as mock_tcgetattr:
                 handler.enter_raw_mode()
                 mock_tcgetattr.assert_not_called()
     
-    @patch('cli.components.keyboard_handler.termios.tcsetattr')
-    @patch('cli.components.keyboard_handler.sys.stdin.fileno')
+    @patch('storm_checker.cli.components.keyboard_handler.termios.tcsetattr')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.fileno')
     def test_exit_raw_mode(self, mock_fileno, mock_tcsetattr, handler):
         """Test exiting raw terminal mode."""
         handler._raw_mode_active = True
@@ -186,12 +186,12 @@ class TestKeyboardHandler:
     
     def test_exit_raw_mode_not_active(self, handler):
         """Test exiting raw mode when not active."""
-        with patch('cli.components.keyboard_handler.termios.tcsetattr') as mock_tcsetattr:
+        with patch('storm_checker.cli.components.keyboard_handler.termios.tcsetattr') as mock_tcsetattr:
             handler.exit_raw_mode()
             mock_tcsetattr.assert_not_called()
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_non_tty(self, mock_read, mock_isatty, handler):
         """Test reading key from non-TTY terminal."""
         mock_isatty.return_value = False
@@ -203,8 +203,8 @@ class TestKeyboardHandler:
         assert key_press.char == 'a'
         mock_read.assert_called_once_with(1)
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_non_tty_exception(self, mock_read, mock_isatty, handler):
         """Test reading key from non-TTY with exception."""
         mock_isatty.return_value = False
@@ -214,8 +214,8 @@ class TestKeyboardHandler:
         
         assert key_press is None
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
     def test_read_key_timeout(self, mock_select, mock_isatty, handler):
         """Test reading key with timeout."""
         mock_isatty.return_value = True
@@ -226,9 +226,9 @@ class TestKeyboardHandler:
         assert key_press is None
         mock_select.assert_called_once_with([sys.stdin], [], [], 0.1)
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_simple_char(self, mock_read, mock_select, mock_isatty, handler):
         """Test reading a simple character."""
         mock_isatty.return_value = True
@@ -241,9 +241,9 @@ class TestKeyboardHandler:
         assert key_press.char == 'a'
         assert key_press.key == KeyCode.UNKNOWN
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_escape_sequence(self, mock_read, mock_select, mock_isatty, handler):
         """Test reading escape sequence."""
         mock_isatty.return_value = True
@@ -261,9 +261,9 @@ class TestKeyboardHandler:
         assert key_press.key == KeyCode.UP
         assert key_press.raw_sequence == '\x1b[A'
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_escape_only(self, mock_read, mock_select, mock_isatty, handler):
         """Test reading lone escape character."""
         mock_isatty.return_value = True
@@ -280,9 +280,9 @@ class TestKeyboardHandler:
         assert key_press.key == KeyCode.ESCAPE
         assert key_press.raw_sequence == '\x1b'
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_unknown_sequence(self, mock_read, mock_select, mock_isatty, handler):
         """Test reading unknown escape sequence."""
         mock_isatty.return_value = True
@@ -302,8 +302,8 @@ class TestKeyboardHandler:
         assert key_press.key == KeyCode.UNKNOWN
         assert key_press.raw_sequence == '\x1bX'
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_keyboard_interrupt(self, mock_read, mock_isatty, handler):
         """Test handling KeyboardInterrupt."""
         mock_isatty.return_value = True
@@ -315,8 +315,8 @@ class TestKeyboardHandler:
         assert key_press.key == KeyCode.ESCAPE
         assert key_press.ctrl is True
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_eof_error(self, mock_read, mock_isatty, handler):
         """Test handling EOFError."""
         mock_isatty.return_value = True
@@ -500,9 +500,9 @@ class TestKeyboardHandler:
         assert result is True
         callback.assert_called_once_with(key_press)
     
-    @patch('cli.components.keyboard_handler.sys.stdin.isatty')
-    @patch('cli.components.keyboard_handler.select.select')
-    @patch('cli.components.keyboard_handler.sys.stdin.read')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.isatty')
+    @patch('storm_checker.cli.components.keyboard_handler.select.select')
+    @patch('storm_checker.cli.components.keyboard_handler.sys.stdin.read')
     def test_read_key_escape_sequence_timeout_covers_line_191(self, mock_read, mock_select, mock_isatty, handler):
         """Test escape sequence timeout to cover line 191."""
         mock_isatty.return_value = True
@@ -719,7 +719,7 @@ class TestKeyboardHandler:
 class TestConvenienceFunctions:
     """Test convenience functions."""
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     @patch('builtins.print')
     def test_wait_for_any_key_default_prompt(self, mock_print, mock_handler_class):
         """Test wait_for_any_key with default prompt."""
@@ -735,7 +735,7 @@ class TestConvenienceFunctions:
         mock_print.assert_any_call()  # Newline
         mock_handler.wait_for_key.assert_called_once_with()
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     @patch('builtins.print')
     def test_wait_for_any_key_custom_prompt(self, mock_print, mock_handler_class):
         """Test wait_for_any_key with custom prompt."""
@@ -749,7 +749,7 @@ class TestConvenienceFunctions:
         assert result == mock_key
         mock_print.assert_any_call("Custom prompt: ", end='', flush=True)
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     @patch('builtins.print')
     def test_wait_for_specific_key(self, mock_print, mock_handler_class):
         """Test wait_for_specific_key function."""
@@ -764,7 +764,7 @@ class TestConvenienceFunctions:
         mock_print.assert_any_call("Continue? (y/n)", end='', flush=True)
         mock_handler.wait_for_key.assert_called_once_with(['y', 'n'])
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     def test_create_navigation_handler(self, mock_handler_class):
         """Test create_navigation_handler function."""
         mock_handler = Mock()
@@ -782,7 +782,7 @@ class TestConvenienceFunctions:
         assert "h" in bound_keys
         assert "ctrl+c" in bound_keys
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     @patch('builtins.print')
     def test_demo_keyboard_handler(self, mock_print, mock_handler_class):
         """Test demo_keyboard_handler function."""
@@ -816,7 +816,7 @@ class TestConvenienceFunctions:
         # Should create input loop
         mock_handler.create_input_loop.assert_called_once()
     
-    @patch('cli.components.keyboard_handler.KeyboardHandler')
+    @patch('storm_checker.cli.components.keyboard_handler.KeyboardHandler')
     @patch('builtins.print')
     def test_demo_keyboard_handler_unhandled_key(self, mock_print, mock_handler_class):
         """Test demo with unhandled key press."""
@@ -854,7 +854,7 @@ class TestConvenienceFunctions:
 class TestMainExecution:
     """Test main execution path."""
     
-    @patch('cli.components.keyboard_handler.demo_keyboard_handler')
+    @patch('storm_checker.cli.components.keyboard_handler.demo_keyboard_handler')
     def test_main_execution(self, mock_demo):
         """Test that demo runs when module executed as main."""
         # Simulate running as main module

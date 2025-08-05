@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch, MagicMock, call
 import sys
 from typing import List, Tuple
 
-from cli.user_input.multiple_choice import (
+from storm_checker.cli.user_input.multiple_choice import (
     Question, MultipleChoice, demo,
     LEARN_BLUE, LEARN_GREEN, LEARN_YELLOW, LEARN_PURPLE, 
     LEARN_CYAN, RESET, BOLD, CLEAR_LINE, CURSOR_UP, 

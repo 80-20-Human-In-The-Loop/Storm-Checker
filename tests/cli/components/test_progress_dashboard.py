@@ -1,5 +1,5 @@
 import pytest
-from cli.components.progress_dashboard import ProgressDashboard
+from storm_checker.cli.components.progress_dashboard import ProgressDashboard
 
 def test_progress_dashboard_initialization():
     """Test that the ProgressDashboard can be initialized."""

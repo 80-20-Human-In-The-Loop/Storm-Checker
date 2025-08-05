@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Type, List, Dict, Optional
 import re
 
-from tutorials.base_tutorial import BaseTutorial, Question
+from storm_checker.tutorials.base_tutorial import BaseTutorial, Question
 
 
 class BaseTutorialTest(ABC):
