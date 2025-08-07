@@ -24,8 +24,9 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeEl
 from rich.console import Console
 from rich.theme import Theme
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add parent directory to path for storm_checker imports
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 try:
     from storm_checker.cli.colors import (
@@ -51,8 +52,10 @@ class TestRunner:
             "failed": 0,
             "skipped": 0,
             "errors": 0,
-            "total": 0
+            "total": 0,
+            "not_run": 0
         }
+        self.actual_total_tests = 0
         self.failed_tests = []  # Store details of failed tests
         self.coverage_data = {}  # Store coverage information
         self.slow_tests = []  # Store slow test information
@@ -176,8 +179,9 @@ class TestRunner:
         """Build pytest command line arguments."""
         args = []
         
-        # Add test directory
-        args.append("tests/")
+        # Add test directory - use absolute path to ensure proper discovery
+        test_dir = Path(__file__).parent
+        args.append(str(test_dir))
         
         # Verbosity
         if self.args.verbose:
@@ -195,8 +199,11 @@ class TestRunner:
             
         # Coverage
         if self.args.coverage:
+            # Use absolute path for coverage source
+            project_root = Path(__file__).parent.parent
+            storm_checker_path = project_root / "storm_checker"
             args.extend([
-                "--cov=storm_checker",
+                f"--cov={storm_checker_path}",
                 "--cov-report=html",
                 "--cov-report=term-missing"
             ])
@@ -281,42 +288,76 @@ class TestRunner:
         })
         console = Console(theme=storm_theme)
         
-        # First, get list of test files that will be run
-        collect_cmd = [sys.executable, "-m", "pytest", "--collect-only", "-q"] + args
+        # First, collect all tests to get accurate count
+        test_dir = Path(__file__).parent
+        collect_cmd = [sys.executable, "-m", "pytest", "--collect-only", "-q", str(test_dir)]
+        # Add pattern/marker filters if specified to get accurate count
+        for i, arg in enumerate(args):
+            if arg == "-k" and i + 1 < len(args):
+                # Add the pattern filter to collection
+                collect_cmd.extend(["-k", args[i + 1]])
+            elif arg == "-m" and i + 1 < len(args):
+                # Add the marker filter to collection
+                collect_cmd.extend(["-m", args[i + 1]])
+        
         try:
-            collect_result = subprocess.run(collect_cmd, capture_output=True, text=True, timeout=10)
+            collect_result = subprocess.run(collect_cmd, capture_output=True, text=True, timeout=30)
         except subprocess.TimeoutExpired:
             print_error("Failed to collect tests (timeout)")
             return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="Collection timeout")
         
-        # Parse test files from collection
-        test_files = []
+        # Parse test collection output to get total test count and files
+        test_files = set()
+        total_test_count = 0
+        
         if collect_result.stdout:
-            for line in collect_result.stdout.strip().split('\n'):
+            lines = collect_result.stdout.strip().split('\n')
+            for line in lines:
+                # Look for test items (format: path/file.py::Class::method)
                 if '.py::' in line and not line.startswith(' '):
                     file_path = line.split('::')[0]
-                    if file_path not in test_files:
-                        test_files.append(file_path)
+                    test_files.add(file_path)
+                    total_test_count += 1
+                # Also check for the summary line
+                elif 'tests collected' in line:
+                    match = re.search(r'(\d+) tests? collected', line)
+                    if match:
+                        total_test_count = int(match.group(1))
+        
+        # Convert to sorted list
+        test_files = sorted(list(test_files))
         
         # If we couldn't detect files, try to find them directly
         if not test_files:
             # Look for test files in the tests directory
-            test_dir = Path("tests")
-            if test_dir.exists():
-                for py_file in test_dir.rglob("test_*.py"):
-                    test_files.append(str(py_file))
+            test_dir = Path(__file__).parent
+            for py_file in test_dir.rglob("test_*.py"):
+                test_files.append(str(py_file))
+            test_files = sorted(test_files)
         
         if not test_files:
             # Fall back to running all tests at once
-            test_files = ["tests/"]
+            test_files = [str(Path(__file__).parent)]
+        
+        # Store the actual total count for later
+        self.actual_total_tests = total_test_count
         
         total_files = len(test_files)
         completed_files = 0
         all_output = []
+        files_with_issues = []  # Track files that had issues
         
         # Reset state
         self.process_killed = False
         self.kill_reason = ""
+        
+        # If we know the total test count, show it
+        if self.actual_total_tests > 0:
+            if self.args.pattern or self.args.mark:
+                print_info(f"Found {self.actual_total_tests} matching tests across {total_files} files")
+            else:
+                print_info(f"Found {self.actual_total_tests} tests across {total_files} files")
+            print()
         
         # Create Rich progress bar with Storm Checker colors
         with Progress(
@@ -339,19 +380,38 @@ class TestRunner:
                 if self.process_killed:
                     break
                     
+                # Check maxfail at runner level
+                if hasattr(self.args, 'maxfail') and self.args.maxfail:
+                    total_failures = self.test_results["failed"] + self.test_results["errors"]
+                    if total_failures >= self.args.maxfail:
+                        print(f"\n[warning]Stopping: Reached {self.args.maxfail} failures[/warning]")
+                        break
+                    
                 display_file = self._truncate_file_path(test_file, 40)
                 progress.update(
                     task, 
                     description=f"Testing: {display_file}"
                 )
                 
-                # Run pytest for this specific file
+                # Run pytest for this specific file with timeout
                 file_cmd = [sys.executable, "-m", "pytest", test_file, "-v", 
-                           "--tb=line", "-o", "log_cli=false"]
+                           "--tb=line", "-o", "log_cli=false", 
+                           "--timeout=5", "--timeout-method=thread"]
                 
-                # Add other args except the test path
-                for arg in args:
-                    if not arg.startswith("tests/"):
+                # Add other args except the test path, maxfail, and coverage (handle coverage at the end)
+                test_dir_str = str(Path(__file__).parent)
+                for i, arg in enumerate(args):
+                    if not arg == test_dir_str and not arg.startswith("tests/"):
+                        # Skip maxfail since we're running file by file
+                        if arg == "--maxfail":
+                            continue
+                        if i > 0 and args[i-1] == "--maxfail":
+                            continue
+                        # Skip coverage arguments when running file by file - we'll do coverage in a separate pass
+                        if arg.startswith("--cov"):
+                            continue
+                        if i > 0 and args[i-1].startswith("--cov"):
+                            continue
                         file_cmd.append(arg)
                 
                 # Run with safety monitoring
@@ -404,7 +464,7 @@ class TestRunner:
                                     break
                                     
                                 elapsed_no_output = time.time() - last_output_time
-                                if elapsed_no_output > 2.0:  # 2 seconds with no output
+                                if elapsed_no_output > 3.0:  # 3 seconds with no output (increased from 2)
                                     # Likely waiting for input
                                     stdin_blocked = True
                                     process.terminate()
@@ -420,11 +480,14 @@ class TestRunner:
                                     # Update progress bar
                                     progress.update(
                                         task,
-                                        description=f"[error]❌ Blocked: {display_file}"
+                                        description=f"[error]⚠️  Blocked: {display_file}"
                                     )
                                     
-                                    # Record as error
-                                    self.test_results["errors"] += 1
+                                    # Record as error but track file separately
+                                    files_with_issues.append({
+                                        "file": test_file,
+                                        "issue": "stdin_blocked"
+                                    })
                                     self.failed_tests.append({
                                         "path": test_file,
                                         "error": "Test blocked waiting for input (consider mocking stdin operations)"
@@ -440,47 +503,11 @@ class TestRunner:
                         all_output.extend(file_output)
                         
                         # Parse test results from the output
-                        # Helper to remove ANSI codes
-                        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+                        self._parse_file_results(file_output, test_file)
                         
-                        for line in reversed(file_output):
-                            # Remove ANSI color codes
-                            clean_line = ansi_escape.sub('', line)
-                            
-                            # Look for summary line like "==== 2 failed, 3 passed, 1 skipped in 0.5s ===="
-                            if " in " in clean_line and ("passed" in clean_line or "failed" in clean_line or "skipped" in clean_line):
-                                # Extract counts from summary
-                                parts = clean_line.split(" in ")[0].strip("= ").split(", ")
-                                for part in parts:
-                                    part = part.strip()
-                                    try:
-                                        if "passed" in part:
-                                            count = int(part.split()[0])
-                                            self.test_results["passed"] += count
-                                        elif "failed" in part:
-                                            count = int(part.split()[0])
-                                            self.test_results["failed"] += count
-                                            # Also collect failed test details from output
-                                            for output_line in file_output:
-                                                clean_output = ansi_escape.sub('', output_line)
-                                                if clean_output.startswith("FAILED "):
-                                                    test_path = clean_output.split(" - ")[0].replace("FAILED ", "").strip()
-                                                    error_msg = clean_output.split(" - ")[1].strip() if " - " in clean_output else "Test failed"
-                                                    if test_path not in [f["path"] for f in self.failed_tests]:
-                                                        self.failed_tests.append({
-                                                            "path": test_path,
-                                                            "error": error_msg
-                                                        })
-                                        elif "skipped" in part:
-                                            count = int(part.split()[0])
-                                            self.test_results["skipped"] += count
-                                        elif "error" in part or "errors" in part:
-                                            count = int(part.split()[0])
-                                            self.test_results["errors"] += count
-                                    except (ValueError, IndexError):
-                                        # Skip if we can't parse the number
-                                        continue
-                                break
+                        # Debug: Log parsed results for this file
+                        if self.args.debug:
+                            print(f"[DEBUG] File {test_file}: passed={self.test_results['passed']}, failed={self.test_results['failed']}")
                     
                     # Check if process was killed
                     if self.process_killed:
@@ -528,28 +555,86 @@ class TestRunner:
             
             # Final update
             if not self.process_killed:
-                progress.update(
-                    task, 
-                    description="[success]✅ All tests completed",
-                    completed=total_files
-                )
+                if files_with_issues:
+                    progress.update(
+                        task, 
+                        description=f"[warning]⚠️  Completed with {len(files_with_issues)} file{'s' if len(files_with_issues) > 1 else ''} having issues",
+                        completed=total_files
+                    )
+                else:
+                    progress.update(
+                        task, 
+                        description="[success]✅ All tests completed",
+                        completed=total_files
+                    )
         
-        # Update total count
-        self.test_results["total"] = (
-            self.test_results["passed"] + 
-            self.test_results["failed"] + 
-            self.test_results["skipped"]
-        )
+        # Update total count - use actual total if we have it
+        if hasattr(self, 'actual_total_tests') and self.actual_total_tests > 0:
+            # If we know the actual total, use it
+            self.test_results["total"] = self.actual_total_tests
+            # Calculate how many tests weren't run due to issues
+            tests_run = (
+                self.test_results["passed"] + 
+                self.test_results["failed"] + 
+                self.test_results["skipped"] +
+                self.test_results["errors"]
+            )
+            if tests_run < self.actual_total_tests:
+                # Some tests couldn't be run
+                self.test_results["not_run"] = self.actual_total_tests - tests_run
+        else:
+            # Fall back to counting what we ran
+            self.test_results["total"] = (
+                self.test_results["passed"] + 
+                self.test_results["failed"] + 
+                self.test_results["skipped"] +
+                self.test_results["errors"]
+            )
         
         # Create result
         result = subprocess.CompletedProcess(
             args=cmd,
-            returncode=1 if self.test_results["failed"] > 0 or self.process_killed else 0,
+            returncode=1 if self.test_results["failed"] > 0 or self.test_results["errors"] > 0 or self.process_killed else 0,
             stdout=''.join(all_output),
             stderr=""
         )
         
+        # If coverage was requested, run a separate coverage collection pass
+        if self.args.coverage and not self.process_killed:
+            print()
+            print_info("Collecting coverage data...")
+            coverage_cmd = [sys.executable, "-m", "pytest", str(Path(__file__).parent), 
+                          "--cov=storm_checker", "--cov-report=html", "--cov-report=term-missing",
+                          "-q", "--tb=no"]
+            try:
+                coverage_result = subprocess.run(coverage_cmd, capture_output=True, text=True, timeout=60)
+                if coverage_result.returncode == 0 or coverage_result.stdout:
+                    # Append coverage output to result for parsing
+                    result.stdout += "\n" + coverage_result.stdout
+            except subprocess.TimeoutExpired:
+                print_warning("Coverage collection timed out")
+            except Exception as e:
+                print_warning(f"Could not collect coverage: {e}")
+        
         return result
+    
+    def _get_file_test_count(self, test_file: str) -> int:
+        """Get the number of tests in a specific file."""
+        try:
+            # Quick collection of just this file
+            cmd = [sys.executable, "-m", "pytest", test_file, "--collect-only", "-q"]
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            
+            if result.stdout:
+                # Look for "X tests collected" line
+                for line in result.stdout.strip().split('\n'):
+                    if 'tests collected' in line or 'test collected' in line:
+                        match = re.search(r'(\d+) tests? collected', line)
+                        if match:
+                            return int(match.group(1))
+            return 0
+        except:
+            return 0
     
     def _run_pytest(self, args: List[str]) -> subprocess.CompletedProcess:
         """Run pytest and capture output."""
@@ -576,17 +661,20 @@ class TestRunner:
             if self.args.debug:
                 print(f"[DEBUG] Full command: {' '.join(cmd)}")
             
-            # For verbose mode, just pass through
+            # For verbose mode, capture output while displaying it
             if self.args.verbose:
+                # Run with output capture for parsing
                 result = subprocess.run(
                     cmd,
+                    capture_output=True,
                     text=True,
                     timeout=300
                 )
-                # Capture output for parsing by running again quickly with --co
-                quick_cmd = [sys.executable, "-m", "pytest", "--co", "-q"] + args
-                quick_result = subprocess.run(quick_cmd, capture_output=True, text=True, timeout=10)
-                result.stdout = quick_result.stdout if quick_result.returncode == 0 else ""
+                # Display the output to the user
+                if result.stdout:
+                    print(result.stdout)
+                if result.stderr:
+                    print(result.stderr, file=sys.stderr)
             else:
                 # For non-verbose, use real-time progress tracking
                 result = self._run_with_progress(cmd, args)
@@ -694,14 +782,18 @@ class TestRunner:
                 
                 for part in parts:
                     part = part.strip()
-                    if part.endswith(" passed"):
-                        self.test_results["passed"] = int(part.split()[0])
-                    elif part.endswith(" failed"):
-                        self.test_results["failed"] = int(part.split()[0])
-                    elif part.endswith(" error") or part.endswith(" errors"):
-                        self.test_results["errors"] = int(part.split()[0])
-                    elif part.endswith(" skipped"):
-                        self.test_results["skipped"] = int(part.split()[0])
+                    try:
+                        if part.endswith(" passed"):
+                            self.test_results["passed"] = int(part.split()[0])
+                        elif part.endswith(" failed"):
+                            self.test_results["failed"] = int(part.split()[0])
+                        elif part.endswith(" error") or part.endswith(" errors"):
+                            self.test_results["errors"] = int(part.split()[0])
+                        elif part.endswith(" skipped"):
+                            self.test_results["skipped"] = int(part.split()[0])
+                    except (ValueError, IndexError):
+                        # Skip if we can't parse the number
+                        continue
                 break
         
         # Also count test result markers in the progress output
@@ -745,14 +837,14 @@ class TestRunner:
         else:
             self._print_summary(elapsed_time)
             
-        # Show coverage report
-        if self.args.coverage and result.returncode == 0:
+        # Show coverage report (even if tests fail - coverage is still valuable)
+        if self.args.coverage:
             self._parse_coverage_data(result.stdout)
             if self.coverage_data:
                 print()
                 self._print_coverage_report()
-            print()
-            print_info(f"📝 Full coverage report at: {ColorPrinter.primary('htmlcov/index.html', bold=True)}")
+                print()
+                print_info(f"📝 Full coverage report at: {ColorPrinter.primary('htmlcov/index.html', bold=True)}")
             
         # Show detailed failure information
         if result.returncode != 0 and not self.args.verbose:
@@ -775,9 +867,12 @@ class TestRunner:
     def _print_summary(self, elapsed_time: float):
         """Print simple test summary."""
         print()
+        
+        # Determine overall status
+        has_failures = self.test_results["failed"] > 0 or self.test_results["errors"] > 0
         border = Border(
             style=BorderStyle.DOUBLE,
-            color="success" if self.test_results["failed"] == 0 else "error",
+            color="error" if has_failures else "success",
             show_left=False
         )
         
@@ -785,6 +880,18 @@ class TestRunner:
         lines = [
             f"Total Tests: {self.test_results['total']}"
         ]
+        
+        # Show test run results
+        tests_executed = (
+            self.test_results["passed"] + 
+            self.test_results["failed"] + 
+            self.test_results["skipped"] +
+            self.test_results["errors"]
+        )
+        
+        if tests_executed < self.test_results['total']:
+            lines.append(f"Tests Run: {tests_executed} / {self.test_results['total']}")
+            lines.append("")
         
         if self.test_results["passed"] > 0:
             lines.append(f"✅ Passed: {ColorPrinter.success(str(self.test_results['passed']))}")
@@ -794,18 +901,20 @@ class TestRunner:
             lines.append(f"💥 Errors: {ColorPrinter.error(str(self.test_results['errors']))}")
         if self.test_results["skipped"] > 0:
             lines.append(f"⏭️  Skipped: {ColorPrinter.warning(str(self.test_results['skipped']))}")
+        if self.test_results.get("not_run", 0) > 0:
+            lines.append(f"⏸️  Not Run: {ColorPrinter.warning(str(self.test_results['not_run']))}")
             
         lines.append("")
         lines.append(f"⏱️  Time: {elapsed_time:.2f}s")
         
-        # Success rate
-        if self.test_results["total"] > 0:
-            success_rate = (self.test_results["passed"] / self.test_results["total"]) * 100
-            lines.append(f"📊 Success Rate: {success_rate:.1f}%")
+        # Success rate based on tests that actually ran
+        if tests_executed > 0:
+            success_rate = (self.test_results["passed"] / tests_executed) * 100
+            lines.append(f"📊 Success Rate: {success_rate:.1f}% (of tests run)")
         
         summary_box_lines = border.box(
             lines,
-            width=50,
+            width=55,
             padding=2
         )
         summary_box = "\n".join(summary_box_lines)
@@ -1082,6 +1191,50 @@ class TestRunner:
         
         return ", ".join(ranges)
     
+    def _parse_file_results(self, file_output: List[str], test_file: str):
+        """Parse test results from a single file's output."""
+        # Helper to remove ANSI codes
+        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        
+        for line in reversed(file_output):
+            # Remove ANSI color codes
+            clean_line = ansi_escape.sub('', line)
+            
+            # Look for summary line like "==== 2 failed, 3 passed, 1 skipped in 0.5s ===="
+            if " in " in clean_line and ("passed" in clean_line or "failed" in clean_line or "skipped" in clean_line):
+                # Extract counts from summary
+                parts = clean_line.split(" in ")[0].strip("= ").split(", ")
+                for part in parts:
+                    part = part.strip()
+                    try:
+                        if "passed" in part:
+                            count = int(part.split()[0])
+                            self.test_results["passed"] += count
+                        elif "failed" in part:
+                            count = int(part.split()[0])
+                            self.test_results["failed"] += count
+                            # Also collect failed test details from output
+                            for output_line in file_output:
+                                clean_output = ansi_escape.sub('', output_line)
+                                if clean_output.startswith("FAILED "):
+                                    test_path = clean_output.split(" - ")[0].replace("FAILED ", "").strip()
+                                    error_msg = clean_output.split(" - ")[1].strip() if " - " in clean_output else "Test failed"
+                                    if test_path not in [f["path"] for f in self.failed_tests]:
+                                        self.failed_tests.append({
+                                            "path": test_path,
+                                            "error": error_msg
+                                        })
+                        elif "skipped" in part:
+                            count = int(part.split()[0])
+                            self.test_results["skipped"] += count
+                        elif "error" in part or "errors" in part:
+                            count = int(part.split()[0])
+                            self.test_results["errors"] += count
+                    except (ValueError, IndexError):
+                        # Skip if we can't parse the number
+                        continue
+                break
+    
     def _get_random_uncovered_line(self, filepath: str, missing_lines: List[int]) -> Optional[Tuple[int, str]]:
         """Get a random uncovered line from the file."""
         if not missing_lines:
@@ -1143,30 +1296,47 @@ class TestRunner:
     def _print_failures(self):
         """Print detailed failure information."""
         if not self.failed_tests:
-            print_error("Tests failed but no details available. Run with -v for more info.")
+            if self.test_results["failed"] > 0 or self.test_results["errors"] > 0:
+                print_error("Tests failed but no details available. Run with -v for more info.")
             return
             
         # Group failures by file
         failures_by_file = {}
+        stdin_blocked_files = []
+        other_errors = []
+        
         for failure in self.failed_tests:
-            file_path = failure["path"].split("::")[0]
-            if file_path not in failures_by_file:
-                failures_by_file[file_path] = []
-            failures_by_file[file_path].append(failure)
+            if "stdin" in failure.get("error", "").lower() or "input" in failure.get("error", "").lower():
+                stdin_blocked_files.append(failure["path"])
+            else:
+                file_path = failure["path"].split("::")[0]
+                if file_path not in failures_by_file:
+                    failures_by_file[file_path] = []
+                failures_by_file[file_path].append(failure)
         
-        print_error(f"\n❌ {len(self.failed_tests)} Test Failure{'s' if len(self.failed_tests) > 1 else ''}:\n")
-        
-        for file_path, failures in failures_by_file.items():
-            print(f"{ColorPrinter.error(file_path, bold=True)}")
+        # Print actual test failures first
+        if failures_by_file:
+            print_error(f"\n❌ Test Failures:\n")
             
-            for failure in failures:
-                # Extract test name from path
-                test_parts = failure["path"].split("::")[1:]
-                test_name = "::".join(test_parts) if test_parts else "unknown"
+            for file_path, failures in failures_by_file.items():
+                print(f"{ColorPrinter.error(file_path, bold=True)}")
                 
-                print(f"  {ColorPrinter.error('✗')} {test_name}")
-                print(f"    {DIM}{failure['error']}{RESET}")
-            print()  # Blank line between files
+                for failure in failures:
+                    # Extract test name from path
+                    test_parts = failure["path"].split("::")[1:]
+                    test_name = "::".join(test_parts) if test_parts else "unknown"
+                    
+                    print(f"  {ColorPrinter.error('✗')} {test_name}")
+                    print(f"    {DIM}{failure['error']}{RESET}")
+                print()  # Blank line between files
+        
+        # Print stdin-blocked files separately
+        if stdin_blocked_files:
+            print_warning(f"\n⚠️  Files blocked waiting for input:\n")
+            for file_path in stdin_blocked_files:
+                print(f"  {ColorPrinter.warning(file_path)}")
+                print(f"    {DIM}Consider mocking stdin operations in these tests{RESET}")
+            print()
 
 
 def main():

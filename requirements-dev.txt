@@ -1,0 +1,23 @@
+# Development dependencies for Storm Checker
+
+# Testing
+pytest>=8.0.0
+pytest-cov>=6.0.0
+pytest-mock>=3.14.0
+pytest-timeout>=2.4.0
+
+# Type checking
+mypy>=1.0.0
+
+# Code quality
+black>=24.0.0
+ruff>=0.1.0
+isort>=5.12.0
+
+# Documentation
+sphinx>=7.0.0
+sphinx-rtd-theme>=2.0.0
+
+# Build tools
+build>=1.0.0
+twine>=5.0.0

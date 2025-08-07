@@ -44,7 +44,7 @@ class GeneralTutorialRegistry:
 
     def _load_tutorials(self) -> None:
         """Load general tutorial modules."""
-        from tutorials.hello_world import HelloWorldTutorial
+        from storm_checker.tutorials.hello_world import HelloWorldTutorial
 
         # Only include general tutorials (not MyPy-specific ones)
         self._tutorials = {
@@ -120,7 +120,7 @@ def list_tutorials(registry: GeneralTutorialRegistry, interactive: bool = True) 
     # Use interactive menu if available and requested
     if interactive:
         try:
-            from cli.components.interactive_menu import InteractiveMenu
+            from storm_checker.cli.components.interactive_menu import InteractiveMenu
 
             # Create interactive menu
             menu = InteractiveMenu(

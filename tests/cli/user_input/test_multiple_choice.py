@@ -8,7 +8,16 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock, call
 import sys
 from typing import List, Tuple
+import os
 
+# Mock stdin operations at module level to prevent blocking in non-interactive environments
+if not sys.stdin.isatty():
+    # We're in a non-interactive environment (like pytest)
+    # Mock the termios and tty modules to prevent stdin blocking
+    sys.modules['termios'] = MagicMock()
+    sys.modules['tty'] = MagicMock()
+
+# Import after mocking to ensure mocks are in place
 from storm_checker.cli.user_input.multiple_choice import (
     Question, MultipleChoice, demo,
     LEARN_BLUE, LEARN_GREEN, LEARN_YELLOW, LEARN_PURPLE, 
@@ -53,6 +62,17 @@ class TestQuestion:
 
 class TestMultipleChoice:
     """Test the MultipleChoice class."""
+    
+    @pytest.fixture(autouse=True)
+    def mock_stdin_operations(self):
+        """Automatically mock stdin operations for all tests."""
+        # Mock sys.stdin.fileno to prevent termios issues
+        with patch('sys.stdin.fileno', return_value=0):
+            # Mock termios functions
+            with patch('termios.tcgetattr', return_value="mock_settings"):
+                with patch('termios.tcsetattr'):
+                    with patch('tty.setraw'):
+                        yield
     
     @pytest.fixture
     def sample_question(self):
@@ -398,7 +418,7 @@ class TestMultipleChoice:
         explanation_calls = [call for call in calls if "📖 Explanation:" in call]
         assert len(explanation_calls) == 0
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_up_arrow_navigation(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -414,7 +434,7 @@ class TestMultipleChoice:
         assert mc.selected_index == 0  # Should move up
         assert result == (False, 0)  # Incorrect answer (0), user answer (0)
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_down_arrow_navigation(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -430,7 +450,7 @@ class TestMultipleChoice:
         assert mc.selected_index == 1  # Should move down
         assert result == (True, 1)  # Correct answer (1), user answer (1)
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_up_arrow_at_top_boundary(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -445,7 +465,7 @@ class TestMultipleChoice:
         
         assert mc.selected_index == 0  # Should stay at top
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_down_arrow_at_bottom_boundary(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -460,7 +480,7 @@ class TestMultipleChoice:
         
         assert mc.selected_index == 2  # Should stay at bottom
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_number_key_selection_valid(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -475,7 +495,7 @@ class TestMultipleChoice:
         assert mc.selected_index == 1  # Should select index 1 (option "4")
         assert result == (True, 1)  # Correct answer
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_number_key_selection_invalid(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -490,7 +510,7 @@ class TestMultipleChoice:
         # Should ignore invalid number and continue with current selection
         assert mc.selected_index == 0  # Should stay at initial position
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_enter_key(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -505,7 +525,7 @@ class TestMultipleChoice:
         
         assert result == (True, 1)  # Correct answer
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     @patch('sys.exit')
@@ -513,18 +533,17 @@ class TestMultipleChoice:
         """Test run method with quit key."""
         mc = MultipleChoice(sample_question)
         
-        # Simulate: Press 'q' to quit - need to create a generator that returns QUIT then stops
-        def quit_generator():
-            yield 'QUIT'
-        
+        # When QUIT is pressed, sys.exit is called. Mock it to raise SystemExit instead
         mock_get_key.return_value = 'QUIT'
+        mock_exit.side_effect = SystemExit(0)
         
-        mc.run()
+        with pytest.raises(SystemExit):
+            mc.run()
         
         # Should call sys.exit
         mock_exit.assert_called_once_with(0)
     
-    @patch.object(MultipleChoice, 'get_key')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key')
     @patch.object(MultipleChoice, 'display')
     @patch('builtins.print')
     def test_run_unknown_key(self, mock_print, mock_display, mock_get_key, sample_question):
@@ -539,13 +558,13 @@ class TestMultipleChoice:
         # Should ignore unknown key and continue
         assert result == (False, 0)  # Default selection (incorrect)
     
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key', return_value='ENTER')
     @patch('builtins.print')
-    def test_run_cursor_management(self, mock_print, sample_question):
+    def test_run_cursor_management(self, mock_print, mock_get_key, sample_question):
         """Test that cursor is properly hidden and shown."""
         mc = MultipleChoice(sample_question)
         
-        with patch.object(mc, 'get_key', return_value='ENTER'):
-            mc.run()
+        mc.run()
         
         # Check that cursor hide/show commands were printed
         calls = [call[0][0] for call in mock_print.call_args_list if call[0]]
@@ -558,14 +577,14 @@ class TestMultipleChoice:
         show_calls = [call for call in calls if SHOW_CURSOR in call]
         assert len(show_calls) >= 1
     
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key', side_effect=Exception("Test exception"))
     @patch('builtins.print')
-    def test_run_cursor_cleanup_on_exception(self, mock_print, sample_question):
+    def test_run_cursor_cleanup_on_exception(self, mock_print, mock_get_key, sample_question):
         """Test that cursor is shown even if exception occurs."""
         mc = MultipleChoice(sample_question)
         
-        with patch.object(mc, 'get_key', side_effect=Exception("Test exception")):
-            with pytest.raises(Exception):
-                mc.run()
+        with pytest.raises(Exception):
+            mc.run()
         
         # Should still show cursor in finally block
         calls = [call[0][0] for call in mock_print.call_args_list if call[0]]
@@ -637,18 +656,17 @@ class TestEdgeCases:
             correct_index=0
         )
     
-    def test_single_option_navigation(self, single_option_question):
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.get_key', return_value='UP')
+    @patch('storm_checker.cli.user_input.multiple_choice.MultipleChoice.display')
+    @patch('builtins.print')
+    def test_single_option_navigation(self, mock_print, mock_display, mock_get_key, single_option_question):
         """Test navigation with only one option."""
         mc = MultipleChoice(single_option_question)
         
         # Up/down should have no effect
         original_index = mc.selected_index
-        
-        with patch.object(mc, 'get_key', return_value='UP'):
-            with patch.object(mc, 'display'):
-                with patch('builtins.print'):
-                    # This would normally trigger navigation but shouldn't change anything
-                    assert mc.selected_index == original_index
+        # This would normally trigger navigation but shouldn't change anything
+        assert mc.selected_index == original_index
     
     @patch('sys.stdin.fileno')
     @patch('termios.tcgetattr')

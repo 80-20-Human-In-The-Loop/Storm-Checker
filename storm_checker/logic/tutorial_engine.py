@@ -229,7 +229,7 @@ class TutorialEngine:
         
         # Update global progress tracker
         try:
-            from logic.progress_tracker import ProgressTracker
+            from storm_checker.logic.progress_tracker import ProgressTracker
             tracker = ProgressTracker()
             tracker.update_tutorial_progress(self.tutorial_data.tutorial_id, 100.0)
         except Exception:

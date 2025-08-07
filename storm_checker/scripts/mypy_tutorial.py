@@ -41,8 +41,8 @@ class MyPyTutorialRegistry:
 
     def _load_tutorials(self) -> None:
         """Load MyPy-specific tutorial modules."""
-        from tutorials.pyproject_setup import PyprojectSetupTutorial
-        from tutorials.type_annotations_basics import TypeAnnotationsBasics
+        from storm_checker.tutorials.pyproject_setup import PyprojectSetupTutorial
+        from storm_checker.tutorials.type_annotations_basics import TypeAnnotationsBasics
 
         self._tutorials = {
             'pyproject_setup': PyprojectSetupTutorial,
@@ -71,7 +71,7 @@ class MyPyTutorialRegistry:
             instance = tutorial_class()
 
             # Check if completed
-            from logic.utils import get_data_directory
+            from storm_checker.logic.utils import get_data_directory
             progress_file = get_data_directory() / "tutorial_progress" / f"{tutorial_id}.json"
             is_completed = False
             if progress_file.exists():
