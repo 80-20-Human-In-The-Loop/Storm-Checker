@@ -16,6 +16,13 @@ from typing import List, Optional, Tuple, Dict, Any
 import json
 import random
 import re
+import threading
+import select
+import resource
+import signal
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn, MofNCompleteColumn
+from rich.console import Console
+from rich.theme import Theme
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -51,6 +58,14 @@ class TestRunner:
         self.slow_tests = []  # Store slow test information
         self.slow_test_threshold = args.slow_test_threshold  # Threshold in seconds for slow tests
         self.terminal_width = self._get_terminal_width()
+        
+        # Safety features
+        self.timeout_per_file = getattr(args, 'timeout', 30)  # Default 30s per test file
+        self.max_memory_mb = getattr(args, 'max_memory', 2048)  # Default 2GB
+        self.safety_enabled = not getattr(args, 'safety_off', False)
+        self.monitor_thread = None
+        self.process_killed = False
+        self.kill_reason = ""
         
     def run(self) -> int:
         """Run the test suite."""
@@ -190,6 +205,10 @@ class TestRunner:
         if self.args.failed_first:
             args.append("--failed-first")
             
+        # Add maxfail for quick testing
+        if hasattr(self.args, 'maxfail') and self.args.maxfail:
+            args.extend(["--maxfail", str(self.args.maxfail)])
+            
         # Color output
         if not self.args.no_color:
             args.append("--color=yes")
@@ -202,10 +221,335 @@ class TestRunner:
             args.append("-r=fEsxXfE")  # Show extra test summary
             
         # Override quiet from pyproject.toml
+        # Use -ra to show short test summary but not -q for quiet
         args.append("-o")
-        args.append("addopts=")  # Clear addopts from config
+        args.append("addopts=-ra")  # Override addopts from config
         
         return args
+    
+    def _get_memory_usage_mb(self) -> float:
+        """Get current process memory usage in MB."""
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        # ru_maxrss is in KB on Linux, bytes on macOS
+        if sys.platform == 'darwin':
+            return usage.ru_maxrss / (1024 * 1024)
+        else:
+            return usage.ru_maxrss / 1024
+    
+    def _monitor_process(self, process: subprocess.Popen, current_file: str, start_time: float):
+        """Monitor process for timeout and memory issues."""
+        last_output_time = time.time()
+        
+        while process.poll() is None and not self.process_killed:
+            current_time = time.time()
+            elapsed = current_time - start_time
+            
+            # Check timeout
+            if elapsed > self.timeout_per_file:
+                self.kill_reason = f"Timeout: Test file '{current_file}' exceeded {self.timeout_per_file}s limit"
+                self.process_killed = True
+                process.terminate()
+                time.sleep(1)
+                if process.poll() is None:
+                    process.kill()
+                break
+            
+            # Check memory usage
+            memory_mb = self._get_memory_usage_mb()
+            if memory_mb > self.max_memory_mb:
+                self.kill_reason = f"Memory limit exceeded: {memory_mb:.0f}MB > {self.max_memory_mb}MB limit"
+                self.process_killed = True
+                process.terminate()
+                time.sleep(1)
+                if process.poll() is None:
+                    process.kill()
+                break
+            
+            time.sleep(0.5)  # Check every 500ms
+    
+    def _run_with_progress(self, cmd: List[str], args: List[str]) -> subprocess.CompletedProcess:
+        """Run pytest with real-time progress tracking, safety features, and proper colors."""
+        
+        # Create custom Rich theme matching Storm Checker colors
+        storm_theme = Theme({
+            "primary": "rgb(65,135,145)",
+            "success": "rgb(70,107,93)",
+            "error": "rgb(156,82,90)",
+            "warning": "rgb(234,182,118)",
+            "info": "rgb(88,122,132)",
+            "subtle": "rgb(88,122,132) dim"
+        })
+        console = Console(theme=storm_theme)
+        
+        # First, get list of test files that will be run
+        collect_cmd = [sys.executable, "-m", "pytest", "--collect-only", "-q"] + args
+        try:
+            collect_result = subprocess.run(collect_cmd, capture_output=True, text=True, timeout=10)
+        except subprocess.TimeoutExpired:
+            print_error("Failed to collect tests (timeout)")
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="Collection timeout")
+        
+        # Parse test files from collection
+        test_files = []
+        if collect_result.stdout:
+            for line in collect_result.stdout.strip().split('\n'):
+                if '.py::' in line and not line.startswith(' '):
+                    file_path = line.split('::')[0]
+                    if file_path not in test_files:
+                        test_files.append(file_path)
+        
+        # If we couldn't detect files, try to find them directly
+        if not test_files:
+            # Look for test files in the tests directory
+            test_dir = Path("tests")
+            if test_dir.exists():
+                for py_file in test_dir.rglob("test_*.py"):
+                    test_files.append(str(py_file))
+        
+        if not test_files:
+            # Fall back to running all tests at once
+            test_files = ["tests/"]
+        
+        total_files = len(test_files)
+        completed_files = 0
+        all_output = []
+        
+        # Reset state
+        self.process_killed = False
+        self.kill_reason = ""
+        
+        # Create Rich progress bar with Storm Checker colors
+        with Progress(
+            SpinnerColumn(style="primary"),
+            TextColumn("[primary]{task.description}"),
+            BarColumn(complete_style="success", finished_style="success"),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            console=console,
+            transient=False
+        ) as progress:
+            
+            task = progress.add_task(
+                "Running tests...", 
+                total=total_files
+            )
+            
+            # Run tests file by file for guaranteed progress updates
+            for i, test_file in enumerate(test_files):
+                if self.process_killed:
+                    break
+                    
+                display_file = self._truncate_file_path(test_file, 40)
+                progress.update(
+                    task, 
+                    description=f"Testing: {display_file}"
+                )
+                
+                # Run pytest for this specific file
+                file_cmd = [sys.executable, "-m", "pytest", test_file, "-v", 
+                           "--tb=line", "-o", "log_cli=false"]
+                
+                # Add other args except the test path
+                for arg in args:
+                    if not arg.startswith("tests/"):
+                        file_cmd.append(arg)
+                
+                # Run with safety monitoring
+                env = os.environ.copy()
+                env['PYTHONUNBUFFERED'] = '1'
+                
+                file_start_time = time.time()
+                
+                try:
+                    process = subprocess.Popen(
+                        file_cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,  # Line buffering
+                        universal_newlines=True,
+                        env=env
+                    )
+                    
+                    # Start monitoring thread if safety is enabled
+                    if self.safety_enabled:
+                        self.monitor_thread = threading.Thread(
+                            target=self._monitor_process,
+                            args=(process, test_file, file_start_time)
+                        )
+                        self.monitor_thread.daemon = True
+                        self.monitor_thread.start()
+                    
+                    # Read output with stdin blocking detection
+                    file_output = []
+                    last_output_time = time.time()
+                    stdin_blocked = False
+                    
+                    while True:
+                        # Use select to check if data is available with timeout
+                        try:
+                            ready = select.select([process.stdout], [], [], 0.1)
+                            
+                            if ready[0]:
+                                line = process.stdout.readline()
+                                if not line:
+                                    break
+                                    
+                                file_output.append(line)
+                                last_output_time = time.time()
+                            else:
+                                # No output available - check if stuck
+                                if process.poll() is not None:
+                                    # Process finished
+                                    break
+                                    
+                                elapsed_no_output = time.time() - last_output_time
+                                if elapsed_no_output > 2.0:  # 2 seconds with no output
+                                    # Likely waiting for input
+                                    stdin_blocked = True
+                                    process.terminate()
+                                    time.sleep(0.5)
+                                    if process.poll() is None:
+                                        process.kill()
+                                    
+                                    # Add error message
+                                    error_msg = f"\n⚠️  Test file '{test_file}' appears to be waiting for user input - skipping\n"
+                                    file_output.append(error_msg)
+                                    all_output.append(error_msg)
+                                    
+                                    # Update progress bar
+                                    progress.update(
+                                        task,
+                                        description=f"[error]❌ Blocked: {display_file}"
+                                    )
+                                    
+                                    # Record as error
+                                    self.test_results["errors"] += 1
+                                    self.failed_tests.append({
+                                        "path": test_file,
+                                        "error": "Test blocked waiting for input (consider mocking stdin operations)"
+                                    })
+                                    break
+                                    
+                        except (OSError, ValueError):
+                            # File descriptor closed or invalid
+                            break
+                    
+                    if not stdin_blocked:
+                        process.wait()
+                        all_output.extend(file_output)
+                        
+                        # Parse test results from the output
+                        # Helper to remove ANSI codes
+                        ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+                        
+                        for line in reversed(file_output):
+                            # Remove ANSI color codes
+                            clean_line = ansi_escape.sub('', line)
+                            
+                            # Look for summary line like "==== 2 failed, 3 passed, 1 skipped in 0.5s ===="
+                            if " in " in clean_line and ("passed" in clean_line or "failed" in clean_line or "skipped" in clean_line):
+                                # Extract counts from summary
+                                parts = clean_line.split(" in ")[0].strip("= ").split(", ")
+                                for part in parts:
+                                    part = part.strip()
+                                    try:
+                                        if "passed" in part:
+                                            count = int(part.split()[0])
+                                            self.test_results["passed"] += count
+                                        elif "failed" in part:
+                                            count = int(part.split()[0])
+                                            self.test_results["failed"] += count
+                                            # Also collect failed test details from output
+                                            for output_line in file_output:
+                                                clean_output = ansi_escape.sub('', output_line)
+                                                if clean_output.startswith("FAILED "):
+                                                    test_path = clean_output.split(" - ")[0].replace("FAILED ", "").strip()
+                                                    error_msg = clean_output.split(" - ")[1].strip() if " - " in clean_output else "Test failed"
+                                                    if test_path not in [f["path"] for f in self.failed_tests]:
+                                                        self.failed_tests.append({
+                                                            "path": test_path,
+                                                            "error": error_msg
+                                                        })
+                                        elif "skipped" in part:
+                                            count = int(part.split()[0])
+                                            self.test_results["skipped"] += count
+                                        elif "error" in part or "errors" in part:
+                                            count = int(part.split()[0])
+                                            self.test_results["errors"] += count
+                                    except (ValueError, IndexError):
+                                        # Skip if we can't parse the number
+                                        continue
+                                break
+                    
+                    # Check if process was killed
+                    if self.process_killed:
+                        print()
+                        print_error(f"⚠️  Tests aborted: {self.kill_reason}")
+                        if "memory" in self.kill_reason.lower():
+                            print_info("💡 Tip: Check for memory leaks or infinite loops in your tests")
+                        return subprocess.CompletedProcess(
+                            args=cmd,
+                            returncode=1,
+                            stdout=''.join(all_output),
+                            stderr=self.kill_reason
+                        )
+                    
+                    # Track slow tests
+                    file_time = time.time() - file_start_time
+                    if file_time > self.slow_test_threshold:
+                        self.slow_tests.append({
+                            'file': test_file,
+                            'duration': file_time
+                        })
+                        # Update progress bar to show slow warning
+                        progress.update(
+                            task,
+                            description=f"[warning]⚠️  Slow: {display_file}"
+                        )
+                    
+                except Exception as e:
+                    print()
+                    print_error(f"Error running tests for {test_file}: {e}")
+                    all_output.append(f"ERROR: {test_file}: {e}\n")
+                
+                # Update progress
+                completed_files += 1
+                progress.update(task, advance=1)
+                
+                # Show memory usage if getting high
+                if self.safety_enabled:
+                    memory_mb = self._get_memory_usage_mb()
+                    if memory_mb > self.max_memory_mb * 0.8:  # 80% of limit
+                        progress.update(
+                            task,
+                            description=f"[warning]⚠️  High memory: {memory_mb:.0f}MB"
+                        )
+            
+            # Final update
+            if not self.process_killed:
+                progress.update(
+                    task, 
+                    description="[success]✅ All tests completed",
+                    completed=total_files
+                )
+        
+        # Update total count
+        self.test_results["total"] = (
+            self.test_results["passed"] + 
+            self.test_results["failed"] + 
+            self.test_results["skipped"]
+        )
+        
+        # Create result
+        result = subprocess.CompletedProcess(
+            args=cmd,
+            returncode=1 if self.test_results["failed"] > 0 or self.process_killed else 0,
+            stdout=''.join(all_output),
+            stderr=""
+        )
+        
+        return result
     
     def _run_pytest(self, args: List[str]) -> subprocess.CompletedProcess:
         """Run pytest and capture output."""
@@ -217,33 +561,40 @@ class TestRunner:
         if self.args.debug:
             print(f"[DEBUG] Running: {' '.join(args)}")
         
-        # Try to run with subprocess.run and timeout
+        # Try to run with subprocess.Popen for real-time output
         try:
-            if not self.args.quiet:
-                print_info("Running tests...")
-                if not self.args.verbose:
-                    print("Progress: ", end="", flush=True)
-            
             # Run pytest with a reasonable timeout
             start_time = time.time()
             
             # Use sys.executable to ensure we use the right Python
-            cmd = [sys.executable, "-m", "pytest"] + args
+            # Force verbose output to get test names (if not already present)
+            if "-v" not in args and not self.args.verbose:
+                cmd = [sys.executable, "-m", "pytest", "-v"] + args
+            else:
+                cmd = [sys.executable, "-m", "pytest"] + args
             
             if self.args.debug:
                 print(f"[DEBUG] Full command: {' '.join(cmd)}")
             
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout - 703 tests take time!
-            )
+            # For verbose mode, just pass through
+            if self.args.verbose:
+                result = subprocess.run(
+                    cmd,
+                    text=True,
+                    timeout=300
+                )
+                # Capture output for parsing by running again quickly with --co
+                quick_cmd = [sys.executable, "-m", "pytest", "--co", "-q"] + args
+                quick_result = subprocess.run(quick_cmd, capture_output=True, text=True, timeout=10)
+                result.stdout = quick_result.stdout if quick_result.returncode == 0 else ""
+            else:
+                # For non-verbose, use real-time progress tracking
+                result = self._run_with_progress(cmd, args)
             
             elapsed = time.time() - start_time
             
-            if not self.args.quiet and not self.args.verbose:
-                print(f" Done! ({elapsed:.1f}s)")
+            if not self.args.quiet:
+                print(f"\n✅ Tests completed in {elapsed:.1f}s")
             
             # Check if tests took too long
             if elapsed > 5.0:
@@ -888,6 +1239,30 @@ def main():
         "--debug",
         action="store_true",
         help="Enable debug output for troubleshooting"
+    )
+    parser.add_argument(
+        "--maxfail",
+        type=int,
+        help="Stop after N failures (useful for quick testing)"
+    )
+    
+    # Safety features
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Timeout per test file in seconds (default: 30s)"
+    )
+    parser.add_argument(
+        "--max-memory",
+        type=int,
+        default=2048,
+        help="Maximum memory usage in MB (default: 2048MB / 2GB)"
+    )
+    parser.add_argument(
+        "--safety-off",
+        action="store_true",
+        help="Disable all safety features (timeout and memory limits)"
     )
     
     args = parser.parse_args()

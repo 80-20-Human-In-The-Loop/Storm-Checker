@@ -85,7 +85,7 @@ include = [
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config"
 testpaths = ["tests"]
 markers = [
     "unit: Unit tests (fast)",
