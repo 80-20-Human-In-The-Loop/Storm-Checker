@@ -1,9 +1,6 @@
 [WARNING] This isn't deployed or ready for contributions yet. I am very excited for this project, but my priorities are elsewhere for now.
 
-# 🌩️ Storm Checker
-
 <img width="519" height="506" alt="image" src="https://github.com/user-attachments/assets/4077b7be-49da-4ce2-b60f-3e3465ca79cf" />
-
 
 > Smart Python type checking that teaches while it helps
 
