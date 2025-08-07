@@ -1,6 +1,6 @@
 [WARNING] This isn't deployed or ready for contributions yet. I am very excited for this project, but my priorities are elsewhere for now.
 
-<img width="1600" height="800" alt="Untitled design" src="https://github.com/user-attachments/assets/3e3bc7dc-f691-4eed-a8c6-d4f905a6368d" />
+![a nostalgic blue crt monitor (80s aesthetic, pixel_ascii, retro) , on a desk with a keyboard in the middle, book to the right, and coffee cup to the left  around the monitor is storm clouds_lightning_rain, with big clear 'S](https://github.com/user-attachments/assets/68006e46-5703-4497-8127-c09849f79eeb)
 
 > Smart Python type checking that teaches while it helps
 
