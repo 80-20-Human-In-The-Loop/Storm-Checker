@@ -10,12 +10,12 @@ import argparse
 
 try:
     # When installed via pip
-    from cli.colors import ColorPrinter, print_header, THEME, RESET, BOLD
+    from storm_checker.cli.colors import ColorPrinter, print_header, THEME, RESET, BOLD
 except ImportError:
     # For development
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from cli.colors import ColorPrinter, print_header, THEME, RESET, BOLD
+    from storm_checker.cli.colors import ColorPrinter, print_header, THEME, RESET, BOLD
 
 
 def main():
@@ -39,35 +39,35 @@ def main():
 {ColorPrinter.learn('Learn more at: https://github.com/80-20-Human-In-The-Loop/storm-checker')}
         """
     )
-    
+
     # Add subcommands
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
-    
+
     # MyPy command
     mypy_parser = subparsers.add_parser(
         'mypy',
         help='Run MyPy type checker with educational features'
     )
-    
+
     # Tutorial command
     tutorial_parser = subparsers.add_parser(
         'tutorial',
         help='Interactive tutorials for learning type safety'
     )
-    
+
     # Progress command
     progress_parser = subparsers.add_parser(
         'progress',
         help='Track and display your progress and achievements'
     )
-    
+
     # Parse args to get the command
     args, remaining = parser.parse_known_args()
-    
+
     if not args.command:
         parser.print_help()
         sys.exit(0)
-    
+
     # Route to appropriate script
     if args.command == 'mypy':
         # Import and run the mypy checker

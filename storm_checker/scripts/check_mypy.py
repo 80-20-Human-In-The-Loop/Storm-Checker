@@ -24,33 +24,33 @@ from typing import Optional
 
 try:
     # When installed via pip
-    from cli.colors import (
-        ColorPrinter, print_header, print_success, print_error, 
+    from storm_checker.cli.colors import (
+        ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, print_learn,
         RESET, DIM
     )
-    from logic.utils import (
+    from storm_checker.logic.utils import (
         find_python_files,
         get_project_type
     )
-    from logic.mypy_runner import MypyRunner, MypyResult
-    from logic.mypy_error_analyzer import ErrorAnalyzer, AnalysisResult
-    from logic.progress_tracker import ProgressTracker
+    from storm_checker.logic.mypy_runner import MypyRunner, MypyResult
+    from storm_checker.logic.mypy_error_analyzer import ErrorAnalyzer, AnalysisResult
+    from storm_checker.logic.progress_tracker import ProgressTracker
 except ImportError:
     # For development
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from cli.colors import (
-        ColorPrinter, print_header, print_success, print_error, 
+    from storm_checker.cli.colors import (
+        ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, print_learn,
         RESET, DIM
     )
-    from logic.utils import (
+    from storm_checker.logic.utils import (
         find_python_files,
         get_project_type
     )
-    from logic.mypy_runner import MypyRunner, MypyResult
-    from logic.mypy_error_analyzer import ErrorAnalyzer, AnalysisResult
-    from logic.progress_tracker import ProgressTracker
+    from storm_checker.logic.mypy_runner import MypyRunner, MypyResult
+    from storm_checker.logic.mypy_error_analyzer import ErrorAnalyzer, AnalysisResult
+    from storm_checker.logic.progress_tracker import ProgressTracker
 
 
 def print_storm_header(educational: bool = False) -> None:
@@ -75,26 +75,26 @@ def print_results_standard(
         else:
             print_success(f"Perfect! All {result.files_checked} files are type-safe!")
         return
-    
+
     ignore_note = f" ({ignored_count} intentionally ignored)" if ignored_count > 0 else ""
     print_warning(
         f"Found {result.total_issues} type issues in {result.files_checked} files{ignore_note}"
     )
-    
+
     # Configuration errors
     if config_errors:
         print(f"\n{ColorPrinter.error('Configuration Issues (Fix these first!)')}")
         for error in config_errors[:2]:
             print(f"  • {error.message}")
         print()
-    
+
     # Show categories (without tutorial suggestions)
     analyzer = ErrorAnalyzer()
     for category in sorted(analyzer.CATEGORIES, key=lambda c: c.difficulty):
         if category.id in analysis.by_category:
             errors = analysis.by_category[category.id]
             count = len(errors)
-            
+
             # Color based on difficulty
             if category.difficulty <= 2:
                 category_color = "success"
@@ -102,11 +102,11 @@ def print_results_standard(
                 category_color = "warning"
             else:
                 category_color = "error"
-            
+
             # Print category without tutorial
             print(f"{getattr(ColorPrinter, category_color)(category.name)} "
                   f"(Level {category.difficulty}/5 - {count} issues)")
-            
+
             # Show first 2 errors
             for error in errors[:2]:
                 if ":" in str(error):
@@ -115,19 +115,19 @@ def print_results_standard(
                         file_line = ColorPrinter.info(f"{parts[0]}:{parts[1]}")
                         error_msg = ":".join(parts[2:])
                         print(f"     {file_line}:{error_msg}")
-            
+
             if count > 2:
                 print(f"     {DIM}... and {count - 2} more{RESET}")
             print()
-    
+
     # Show uncategorized errors (Level 5)
     if "uncategorized" in analysis.by_category:
         errors = analysis.by_category["uncategorized"]
         count = len(errors)
-        
+
         print(f"{ColorPrinter.error('Complex/Uncategorized Issues')} "
               f"(Level 5/5 - {count} issues)")
-        
+
         # Show first 2 errors
         for error in errors[:2]:
             if ":" in str(error):
@@ -136,30 +136,30 @@ def print_results_standard(
                     file_line = ColorPrinter.info(f"{parts[0]}:{parts[1]}")
                     error_msg = ":".join(parts[2:])
                     print(f"     {file_line}:{error_msg}")
-        
+
         if count > 2:
             print(f"     {DIM}... and {count - 2} more{RESET}")
         print()
-    
+
     # Show one random fix suggestion
     if analysis.learning_path:
         import random
         error = random.choice(analysis.learning_path[:10])  # Pick from easier errors
         analyzer = ErrorAnalyzer()
-        
+
         # Find category and difficulty
         category = None
         for cat in analyzer.CATEGORIES:
             if cat.matches_error(error):
                 category = cat
                 break
-        
+
         difficulty = category.difficulty if category else 3
         complexity = "Low" if difficulty <= 2 else "Medium" if difficulty <= 3 else "High"
-        
+
         print(f"\n{ColorPrinter.primary('🎲 Random Fix', bold=True)} (Level {difficulty}, Complexity: {complexity})")
         print(f"{ColorPrinter.info(f'{error.file_path}:{error.line_number}')} - {error.message}")
-        
+
         # Try to get explanation
         explanation = analyzer.get_explanation(error)
         if explanation and explanation.how_to_fix:
@@ -188,7 +188,7 @@ def print_results_educational(
     print_warning(
         f"Found {result.total_issues} type issues in {result.files_checked} files{ignore_note}"
     )
-    
+
     # Configuration errors are passed separately now
     if config_errors:
         print(f"\n{ColorPrinter.error('⚠️  Configuration Issues (Fix these first!)', bold=True)} "
@@ -197,17 +197,17 @@ def print_results_educational(
         for error in config_errors[:2]:
             print(f"  • {error.message}")
         print()
-    
+
     # Show error breakdown by educational category
     print(f"\n{ColorPrinter.learn('📚 Learning Opportunities:', bold=True)}\n")
-    
+
     # Show categories sorted by difficulty (easiest first)
     analyzer = ErrorAnalyzer()
     for category in sorted(analyzer.CATEGORIES, key=lambda c: c.difficulty):
         if category.id in analysis.by_category:
             errors = analysis.by_category[category.id]
             count = len(errors)
-            
+
             # Color based on difficulty
             if category.difficulty <= 2:
                 category_color = "success"
@@ -215,12 +215,12 @@ def print_results_educational(
                 category_color = "warning"
             else:
                 category_color = "error"
-            
+
             # Print category with inline tutorial suggestion
             print(f"{getattr(ColorPrinter, category_color)(category.name)} "
                   f"(Level {category.difficulty}/5 - {count} issues) "
                   f"→ {ColorPrinter.warning(f'stormcheck tutorial {category.tutorial_id}')}")
-            
+
             # Show first 2 errors as examples
             for error in errors[:2]:
                 if ":" in str(error):
@@ -229,7 +229,7 @@ def print_results_educational(
                         file_line = ColorPrinter.info(f"{parts[0]}:{parts[1]}")
                         error_msg = ":".join(parts[2:])
                         print(f"     {file_line}:{error_msg}")
-            
+
             if count > 2:
                 print(f"     {DIM}... and {count - 2} more{RESET}")
             print()
@@ -239,12 +239,12 @@ def suggest_tutorials(analysis: AnalysisResult) -> None:
     """Suggest tutorials based on the errors found."""
     if not analysis.suggested_tutorials:
         return
-    
+
     print(f"\n{ColorPrinter.learn('🎓 Recommended Tutorials:', bold=True)}\n")
-    
+
     for i, tutorial_id in enumerate(analysis.suggested_tutorials[:3], 1):
         print(f"{i}. {ColorPrinter.primary('stormcheck tutorial')} {tutorial_id}")
-    
+
     if len(analysis.suggested_tutorials) > 3:
         print(f"\n{DIM}Plus {len(analysis.suggested_tutorials) - 3} more tutorials available{RESET}")
 
@@ -253,20 +253,20 @@ def print_learning_path(analysis: AnalysisResult) -> None:
     """Print a suggested learning path through the errors."""
     if not analysis.learning_path:
         return
-    
+
     print(f"\n{ColorPrinter.learn('🗺️ Suggested Learning Path:', bold=True)}\n")
     print("Fix errors in this order for the best learning experience:\n")
-    
+
     analyzer = ErrorAnalyzer()
     for i, error in enumerate(analysis.learning_path[:5], 1):
         explanation = analyzer.get_explanation(error)
-        
+
         print(f"{i}. {ColorPrinter.info(f'{error.file_path}:{error.line_number}')}")
         print(f"   Error: {error.message}")
-        
+
         if explanation:
             print(f"   {ColorPrinter.success('💡 Quick fix:')} {explanation.simple_explanation}")
-        
+
         print()
 
 
@@ -275,15 +275,15 @@ def show_random_issue(result: MypyResult) -> None:
     if not result.errors:
         print_success("No errors to show - you've achieved type safety!")
         return
-    
+
     import random
     error = random.choice(result.errors)
     analyzer = ErrorAnalyzer()
-    
+
     print(f"\n{ColorPrinter.primary('🎲 Random Issue to Fix:', bold=True)}\n")
     print(f"File: {ColorPrinter.info(f'{error.file_path}:{error.line_number}')}")
     print(f"Error: {error.message}")
-    
+
     explanation = analyzer.get_explanation(error)
     if explanation:
         print(f"\n{ColorPrinter.success('💡 Explanation:')}")
@@ -291,7 +291,7 @@ def show_random_issue(result: MypyResult) -> None:
         print(f"\n{ColorPrinter.success('🔧 How to fix:')}")
         for step in explanation.how_to_fix[:3]:
             print(f"  • {step}")
-        
+
         if explanation.examples:
             print(f"\n{ColorPrinter.success('📝 Example:')}")
             if "before" in explanation.examples:
@@ -307,10 +307,10 @@ def print_dashboard(
 ) -> None:
     """Print comprehensive progress dashboard."""
     print_header("Storm-Checker Progress Dashboard", "Track your type safety journey")
-    
+
     # Get stats
     stats = tracker.get_stats_summary()
-    
+
     # Progress Overview
     print(f"\n{ColorPrinter.primary('📊 Progress Overview', bold=True)}")
     print(f"├─ Total Fixes: {stats['total_fixes']}")
@@ -319,27 +319,27 @@ def print_dashboard(
     print(f"├─ Current Streak: {stats['current_streak']} days")
     print(f"├─ Files Mastered: {stats['files_mastered']}")
     print(f"└─ Velocity: {stats['velocity']:.1f} fixes/day")
-    
+
     # Learning Progress
     print(f"\n{ColorPrinter.learn('🎓 Learning Progress', bold=True)}")
     print(f"├─ Tutorials Completed: {stats['tutorials_completed']}")
     print(f"├─ Error Types Learned: {stats['unique_error_types']}")
     print(f"└─ Achievements Earned: {stats['achievements_earned']}")
-    
+
     # Current Status
     print(f"\n{ColorPrinter.primary('📈 Current Analysis', bold=True)}")
     print(f"├─ Complexity Score: {analysis.complexity_score:.1f}/100")
     print(f"├─ Total Issues: {analysis.total_errors}")
-    
+
     # Show breakdown by difficulty
     for difficulty in range(1, 6):
         if difficulty in analysis.by_difficulty:
             count = len(analysis.by_difficulty[difficulty])
             stars = "⭐" * difficulty
             print(f"├─ Level {difficulty} {stars}: {count} issues")
-    
+
     print(f"└─ Project Type: {get_project_type()}")
-    
+
     # Recent Achievements
     achievements = tracker.get_achievements()
     earned = [a for a in achievements if a.is_earned()]
@@ -347,7 +347,7 @@ def print_dashboard(
         print(f"\n{ColorPrinter.success('🏆 Recent Achievements', bold=True)}")
         for achievement in earned[-3:]:
             print(f"├─ {achievement.icon} {achievement.name}")
-    
+
     # Next Steps
     if analysis.suggested_tutorials:
         print(f"\n{ColorPrinter.primary('🎯 Next Steps', bold=True)}")
@@ -379,28 +379,28 @@ def print_next_steps_educational(
 ) -> None:
     """Print actionable next steps for educational mode."""
     print(f"\n{ColorPrinter.primary('🎯 Next Steps:', bold=True)}\n")
-    
+
     if result.has_errors:
         # Suggest tutorials first
         if analysis.suggested_tutorials:
             print(f"1. {ColorPrinter.learn('Learn the concepts:')}")
             print(f"   stormcheck tutorial {analysis.suggested_tutorials[0]}")
             print()
-        
+
         # Suggest easy fixes
-        easy_errors = [e for e in analysis.learning_path 
-                      if any(cat.difficulty <= 2 and cat.matches_error(e) 
+        easy_errors = [e for e in analysis.learning_path
+                      if any(cat.difficulty <= 2 and cat.matches_error(e)
                             for cat in ErrorAnalyzer().CATEGORIES)]
         if easy_errors:
             print(f"2. {ColorPrinter.success('Start with easy fixes:')}")
             print(f"   {len(easy_errors)} simple issues that take < 5 minutes each")
             print()
-        
+
         # Run tests
         print(f"3. {ColorPrinter.info('Verify your fixes:')}")
         print(f"   python -m pytest  # Run your test suite")
         print(f"   stormcheck mypy   # Re-check types")
-        
+
     else:
         print(f"1. {ColorPrinter.success('Celebrate your achievement! 🎉')}")
         print(f"   You've achieved type safety!")
@@ -410,7 +410,7 @@ def print_next_steps_educational(
         print()
         print(f"3. {ColorPrinter.primary('Level up:')}")
         print(f"   Enable stricter settings in pyproject.toml")
-    
+
     # Tips
     print(f"\n{ColorPrinter.info('💡 Tips:')}")
     if keywords:
@@ -428,10 +428,10 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    
+
     # Add subcommands
     subparsers = parser.add_subparsers(dest='subcommand', help='Available subcommands')
-    
+
     # Default MyPy checking (no subcommand)
     # Add arguments directly to main parser for backward compatibility
     parser.add_argument(
@@ -474,15 +474,15 @@ def main() -> None:
         action="store_true",
         help="Educational mode with tutorials and learning guidance",
     )
-    
+
     # Tutorial subcommand
     tutorial_parser = subparsers.add_parser(
         'tutorial',
         help='MyPy-specific tutorials for learning type safety'
     )
-    
+
     args, remaining = parser.parse_known_args()
-    
+
     # Handle tutorial subcommand
     if args.subcommand == 'tutorial':
         from scripts.mypy_tutorial import main as tutorial_main
@@ -490,22 +490,22 @@ def main() -> None:
         sys.argv = ['mypy_tutorial.py'] + remaining
         tutorial_main()
         return
-    
+
     # Parse remaining args for main mypy functionality
     args = parser.parse_args()
-    
+
     # Initialize components
     runner = MypyRunner()
     analyzer = ErrorAnalyzer()
     tracker = ProgressTracker()
-    
+
     # Print header unless in JSON mode
     if not args.json:
         print_storm_header(educational=args.edu)
-    
+
     # Check for pyproject.toml
     pyproject_exists = Path("pyproject.toml").exists()
-    
+
     # Check for pretty=true setting in pyproject.toml
     if pyproject_exists:
         try:
@@ -521,31 +521,31 @@ def main() -> None:
                     # multi-line error messages where the error code appears on a separate line
         except Exception:
             pass  # Ignore parsing errors
-    
+
     # Find files
     files = find_python_files(
         keywords=args.keywords,
         exclude_dirs=None,  # Use defaults
     )
-    
+
     if not args.json:
         if args.keywords:
             print(f"🔎 Searching for: {ColorPrinter.primary(args.keywords)}")
         print(f"📁 Found {ColorPrinter.info(str(len(files)))} Python files\n")
-    
+
     # Start tracking session
     if not args.no_track:
         tracker.start_session()
-    
+
     # Run MyPy
     result = runner.run_mypy(files)
-    
+
     # Check for errors
     if result.return_code == -1:
         print_error("MyPy execution failed!")
         print_info("Check your MyPy installation: pip install mypy")
         sys.exit(1)
-    
+
     # Add configuration warning if no pyproject.toml
     if not pyproject_exists and not args.json:
         from logic.mypy_runner import MypyError
@@ -559,15 +559,15 @@ def main() -> None:
             raw_line="Missing pyproject.toml"
         )
         result.errors.insert(0, config_error)
-    
+
     # Filter ignored errors
     genuine_errors, ignored_errors = runner.filter_ignored_errors(result.errors)
     result.errors = genuine_errors
-    
+
     # Separate configuration errors from regular errors for display
     config_errors = [e for e in result.errors if e.file_path == "<configuration>"]
     regular_errors = [e for e in result.errors if e.file_path != "<configuration>"]
-    
+
     # Create a modified result for analysis (without config errors)
     analysis_result = MypyResult(
         success=result.success,
@@ -580,10 +580,10 @@ def main() -> None:
         return_code=result.return_code,
         raw_output=result.raw_output
     )
-    
+
     # Analyze errors (excluding config errors which are handled separately)
     analysis = analyzer.analyze_errors(analysis_result)
-    
+
     # Update tracking
     if not args.no_track:
         # Record error types encountered for learning tracking
@@ -591,37 +591,37 @@ def main() -> None:
         for error in result.errors:
             if error.error_code:
                 error_codes.add(error.error_code)
-        
+
         # Track learned error types (those encountered in this session)
         for error_code in error_codes:
             tracker.record_error_type_encountered(error_code)
-        
+
         # Record fixes (compare with previous session)
         # TODO: Implement proper fix tracking
-        
+
         # End session
         tracker.end_session(result)
-        
+
         # Mark mastered files
         for file_path in files:
             file_errors = [e for e in result.errors if e.file_path == str(file_path)]
             if not file_errors:
                 tracker.mark_file_mastered(str(file_path))
-    
+
     # Handle special modes
     if args.random:
         show_random_issue(result)
         sys.exit(0 if not result.has_errors else 1)
-    
+
     if args.dashboard:
         print_dashboard(result, analysis, tracker)
         sys.exit(0 if not result.has_errors else 1)
-    
+
     if args.tutorial:
         suggest_tutorials(analysis)
         print_learning_path(analysis)
         sys.exit(0 if not result.has_errors else 1)
-    
+
     # JSON output
     if args.json:
         import json
@@ -637,22 +637,22 @@ def main() -> None:
         }
         print(json.dumps(output, indent=2))
         sys.exit(0 if not result.has_errors else 1)
-    
+
     # Standard output
     if args.edu:
         print_results_educational(result, analysis, config_errors, len(ignored_errors))
     else:
         print_results_standard(result, analysis, config_errors, len(ignored_errors))
-    
+
     # Educational elements - removed to simplify output
     # The tutorial suggestions are now inline with each error category
-    
+
     # Next steps
     if args.edu:
         print_next_steps_educational(result, analysis, args.keywords)
     else:
         print_next_steps_standard(result, analysis, args.keywords)
-    
+
     # Final status with motivational message (only in educational mode)
     if args.edu:
         if not result.has_errors:
@@ -661,7 +661,7 @@ def main() -> None:
         else:
             print(f"\n{ColorPrinter.learn('📚 Keep learning!', bold=True)} "
                   f"You're making great progress.\n")
-    
+
     # Exit with appropriate code
     sys.exit(0 if not result.has_errors else 1)
 

@@ -12,21 +12,21 @@ from typing import Dict, Any
 
 try:
     # When installed via pip
-    from cli.colors import (
+    from storm_checker.cli.colors import (
         ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, THEME, RESET, BOLD
     )
-    from logic.progress_tracker_v2 import EnhancedProgressTracker
-    from cli.components.progress_dashboard import ProgressDashboard
+    from storm_checker.logic.progress_tracker_v2 import EnhancedProgressTracker
+    from storm_checker.cli.components.progress_dashboard import ProgressDashboard
 except ImportError:
     # For development
     sys.path.insert(0, str(Path(__file__).parent.parent))
-    from cli.colors import (
+    from storm_checker.cli.colors import (
         ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, THEME, RESET, BOLD
     )
-    from logic.progress_tracker_v2 import EnhancedProgressTracker
-    from cli.components.progress_dashboard import ProgressDashboard
+    from storm_checker.logic.progress_tracker_v2 import EnhancedProgressTracker
+    from storm_checker.cli.components.progress_dashboard import ProgressDashboard
 
 
 def show_progress(tracker: EnhancedProgressTracker) -> None:
@@ -43,7 +43,7 @@ def clear_progress(tracker: EnhancedProgressTracker) -> None:
     stats = data["overall_stats"]
     tutorials = data["tutorial_progress"]
     achievements = data["achievements"]
-    
+
     # Show warning
     print()
     print_warning("⚠️  WARNING: Clear All Progress Data?")
@@ -57,10 +57,10 @@ def clear_progress(tracker: EnhancedProgressTracker) -> None:
     print()
     print("Your code and type annotations will NOT be affected.")
     print()
-    
+
     # Get confirmation
     confirmation = input("Type 'yes' to confirm deletion: ").strip().lower()
-    
+
     if confirmation == 'yes':
         cleared = tracker.clear_all_progress()
         print()
@@ -74,7 +74,7 @@ def clear_progress(tracker: EnhancedProgressTracker) -> None:
 def export_progress(tracker: EnhancedProgressTracker, format: str = "json") -> None:
     """Export progress data in specified format."""
     data = tracker.get_dashboard_data()
-    
+
     if format == "json":
         import json
         output = json.dumps(data, indent=2, default=str)
@@ -96,7 +96,7 @@ def export_progress(tracker: EnhancedProgressTracker, format: str = "json") -> N
     else:
         print_error(f"Unsupported export format: {format}")
         return
-    
+
     # Write to file
     output_path = Path(filename)
     output_path.write_text(output)
@@ -107,10 +107,10 @@ def show_achievements(tracker: EnhancedProgressTracker) -> None:
     """Display detailed achievements view."""
     data = tracker.progress_data.achievements
     all_achievements = tracker.achievements
-    
+
     print_header("Storm-Checker Achievements", "Track your type safety journey")
     print()
-    
+
     # Group by category
     by_category = {}
     for achievement in all_achievements.values():
@@ -118,15 +118,15 @@ def show_achievements(tracker: EnhancedProgressTracker) -> None:
         if category not in by_category:
             by_category[category] = []
         by_category[category].append(achievement)
-    
+
     # Display each category
     for category, achievements in by_category.items():
         print(f"{BOLD}{category.title()} Achievements{RESET}")
         print("─" * 40)
-        
+
         for achievement in achievements:
             is_unlocked = achievement.id in data.unlocked
-            
+
             if is_unlocked:
                 unlock_time = data.unlocked[achievement.id]
                 time_str = unlock_time.strftime("%Y-%m-%d")
@@ -147,20 +147,20 @@ def show_achievements(tracker: EnhancedProgressTracker) -> None:
                         print(f"   {THEME['text_muted']}Not yet unlocked{RESET}")
                     else:
                         print(f"   {THEME['text_muted']}???{RESET}")
-        
+
         print()
-    
+
     # Summary
     total = len(all_achievements)
     unlocked = len(data.unlocked)
     percentage = (unlocked / total * 100) if total > 0 else 0
-    
+
     print(f"{BOLD}Achievement Progress: {unlocked}/{total} ({percentage:.0f}%){RESET}")
-    
+
     # Calculate total points
     total_points = sum(
-        all_achievements[aid].points 
-        for aid in data.unlocked 
+        all_achievements[aid].points
+        for aid in data.unlocked
         if aid in all_achievements
     )
     print(f"Total Points: {total_points} 🏆")
@@ -169,14 +169,14 @@ def show_achievements(tracker: EnhancedProgressTracker) -> None:
 def show_tutorials(tracker: EnhancedProgressTracker) -> None:
     """Display tutorial-specific progress."""
     tutorials = tracker.progress_data.tutorial_progress
-    
+
     print_header("Tutorial Progress", "Your learning journey")
     print()
-    
+
     if not tutorials.completed and not tutorials.in_progress:
         print_info("No tutorial progress yet. Start with 'stormcheck tutorial hello_world'!")
         return
-    
+
     # Completed tutorials
     if tutorials.completed:
         print(f"{BOLD}Completed Tutorials{RESET}")
@@ -186,7 +186,7 @@ def show_tutorials(tracker: EnhancedProgressTracker) -> None:
             name = tutorial_id.replace("_", " ").title()
             print(f"✅ {name} - Score: {score}%")
         print()
-    
+
     # In progress tutorials
     if tutorials.in_progress:
         print(f"{BOLD}In Progress{RESET}")
@@ -196,12 +196,12 @@ def show_tutorials(tracker: EnhancedProgressTracker) -> None:
             pct = progress.get("percentage", 0)
             print(f"📚 {name} - {pct:.0f}% complete")
         print()
-    
+
     # Statistics
     print(f"{BOLD}Statistics{RESET}")
     print(f"Total Time Learning: {tutorials.total_time_spent / 60:.1f} minutes")
     print(f"Average Score: {tutorials.average_score:.1f}%")
-    
+
     if tutorials.last_activity:
         from datetime import datetime
         days_ago = (datetime.now() - tutorials.last_activity).days
@@ -228,7 +228,7 @@ Examples:
   stormcheck progress --tutorials  # Show tutorial progress
         """
     )
-    
+
     parser.add_argument(
         '--clear',
         action='store_true',
@@ -249,16 +249,16 @@ Examples:
         action='store_true',
         help='Show tutorial-specific progress'
     )
-    
+
     args = parser.parse_args()
-    
+
     # Initialize tracker
     try:
         tracker = EnhancedProgressTracker()
     except Exception as e:
         print_error(f"Failed to initialize progress tracker: {e}")
         sys.exit(1)
-    
+
     # Handle commands
     try:
         if args.clear:
