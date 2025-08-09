@@ -16,7 +16,7 @@ try:
         ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, THEME, RESET, BOLD
     )
-    from storm_checker.logic.progress_tracker_v2 import EnhancedProgressTracker
+    from storm_checker.logic.progress_tracker import ProgressTracker as EnhancedProgressTracker
     from storm_checker.cli.components.progress_dashboard import ProgressDashboard
 except ImportError:
     # For development
@@ -25,7 +25,7 @@ except ImportError:
         ColorPrinter, print_header, print_success, print_error,
         print_warning, print_info, THEME, RESET, BOLD
     )
-    from storm_checker.logic.progress_tracker_v2 import EnhancedProgressTracker
+    from storm_checker.logic.progress_tracker import ProgressTracker as EnhancedProgressTracker
     from storm_checker.cli.components.progress_dashboard import ProgressDashboard
 
 
@@ -138,7 +138,7 @@ def show_achievements(tracker: EnhancedProgressTracker) -> None:
                 if progress_info:
                     pct = progress_info['percentage']
                     current = progress_info['current']
-                    target = progress_info['target']
+                    target = progress_info.get('target', '?')
                     print(f"{THEME['text_muted']}{achievement.icon} {achievement.name} - {achievement.description}{RESET}")
                     print(f"   Progress: {current}/{target} ({pct:.0f}%)")
                 else:

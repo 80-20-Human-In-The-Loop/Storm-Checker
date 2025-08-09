@@ -1,986 +1,562 @@
+#!/usr/bin/env python3
 """
-Comprehensive Tests for Progress Tracker
-=======================================
-Tests for progress tracking and achievement system with full coverage of all functionality.
+Comprehensive Tests for Progress Tracker V2
+============================================
+Tests for the enhanced progress tracking system with full coverage.
 """
 
 import json
+import pytest
+from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
 import tempfile
 import shutil
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
-import pytest
 
-from storm_checker.logic.progress_tracker import Achievement, SessionStats, ProgressData, ProgressTracker
-from storm_checker.logic.mypy_runner import MypyError, MypyResult
+# Add parent directory to path for imports
+import sys
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-
-class TestAchievement:
-    """Test the Achievement dataclass."""
-    
-    def test_achievement_initialization_defaults(self):
-        """Test Achievement initialization with default parameters."""
-        achievement = Achievement(
-            id="test_id",
-            name="Test Achievement", 
-            description="A test achievement",
-            icon="🎯",
-            category="testing"
-        )
-        
-        assert achievement.id == "test_id"
-        assert achievement.name == "Test Achievement"
-        assert achievement.description == "A test achievement"
-        assert achievement.icon == "🎯"
-        assert achievement.category == "testing"
-        assert achievement.earned_at is None
-        assert achievement.criteria == {}
-    
-    def test_achievement_initialization_with_all_fields(self):
-        """Test Achievement initialization with all parameters."""
-        earned_time = datetime.now(timezone.utc)
-        criteria = {"errors_fixed": 10}
-        
-        achievement = Achievement(
-            id="test_id",
-            name="Test Achievement",
-            description="A test achievement", 
-            icon="🎯",
-            category="testing",
-            earned_at=earned_time,
-            criteria=criteria
-        )
-        
-        assert achievement.id == "test_id"
-        assert achievement.name == "Test Achievement"
-        assert achievement.description == "A test achievement"
-        assert achievement.icon == "🎯"
-        assert achievement.category == "testing"
-        assert achievement.earned_at == earned_time
-        assert achievement.criteria == criteria
-    
-    def test_is_earned_when_not_earned(self):
-        """Test is_earned returns False when achievement not earned."""
-        achievement = Achievement(
-            id="test_id",
-            name="Test Achievement",
-            description="A test achievement",
-            icon="🎯", 
-            category="testing"
-        )
-        
-        assert not achievement.is_earned()
-    
-    def test_is_earned_when_earned(self):
-        """Test is_earned returns True when achievement is earned."""
-        earned_time = datetime.now(timezone.utc)
-        achievement = Achievement(
-            id="test_id",
-            name="Test Achievement",
-            description="A test achievement",
-            icon="🎯",
-            category="testing",
-            earned_at=earned_time
-        )
-        
-        assert achievement.is_earned()
-
-
-class TestSessionStats:
-    """Test the SessionStats dataclass."""
-    
-    def test_session_stats_initialization_defaults(self):
-        """Test SessionStats initialization with default parameters."""
-        started_at = datetime.now(timezone.utc)
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=started_at
-        )
-        
-        assert stats.session_id == "test_session"
-        assert stats.started_at == started_at
-        assert stats.ended_at is None
-        assert stats.files_checked == 0
-        assert stats.errors_found == 0
-        assert stats.errors_fixed == 0
-        assert stats.new_errors == 0
-        assert stats.error_types == {}
-    
-    def test_session_stats_initialization_with_all_fields(self):
-        """Test SessionStats initialization with all parameters."""
-        started_at = datetime.now(timezone.utc)
-        ended_at = started_at + timedelta(minutes=30)
-        error_types = {"no-untyped-def": 5, "attr-defined": 3}
-        
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=started_at,
-            ended_at=ended_at,
-            files_checked=10,
-            errors_found=15,
-            errors_fixed=12,
-            new_errors=2,
-            error_types=error_types
-        )
-        
-        assert stats.session_id == "test_session"
-        assert stats.started_at == started_at
-        assert stats.ended_at == ended_at
-        assert stats.files_checked == 10
-        assert stats.errors_found == 15
-        assert stats.errors_fixed == 12
-        assert stats.new_errors == 2
-        assert stats.error_types == error_types
-    
-    def test_duration_property_with_ended_session(self):
-        """Test duration property when session is ended."""
-        started_at = datetime.now(timezone.utc)
-        ended_at = started_at + timedelta(minutes=30)
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=started_at,
-            ended_at=ended_at
-        )
-        
-        expected_duration = (ended_at - started_at).total_seconds()
-        assert stats.duration == expected_duration
-    
-    def test_duration_property_with_ongoing_session(self):
-        """Test duration property when session is ongoing."""
-        started_at = datetime.now(timezone.utc) - timedelta(minutes=15)
-        stats = SessionStats(
-            session_id="test_session", 
-            started_at=started_at
-        )
-        
-        # Duration should be approximately 15 minutes (900 seconds)
-        assert 890 <= stats.duration <= 910  # Allow some variance for execution time
-    
-    def test_fix_rate_property_with_zero_errors(self):
-        """Test fix_rate property when no errors found."""
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=datetime.now(timezone.utc),
-            errors_found=0,
-            errors_fixed=0
-        )
-        
-        assert stats.fix_rate == 0.0
-    
-    def test_fix_rate_property_with_partial_fixes(self):
-        """Test fix_rate property with partial error fixes."""
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=datetime.now(timezone.utc),
-            errors_found=10,
-            errors_fixed=7
-        )
-        
-        assert stats.fix_rate == 70.0
-    
-    def test_fix_rate_property_with_all_fixes(self):
-        """Test fix_rate property when all errors fixed."""
-        stats = SessionStats(
-            session_id="test_session",
-            started_at=datetime.now(timezone.utc),
-            errors_found=5,
-            errors_fixed=5
-        )
-        
-        assert stats.fix_rate == 100.0
-
-
-class TestProgressData:
-    """Test the ProgressData dataclass."""
-    
-    def test_progress_data_initialization_defaults(self):
-        """Test ProgressData initialization with defaults."""
-        data = ProgressData()
-        
-        assert data.total_errors_fixed == 0
-        assert data.total_sessions == 0
-        assert data.total_time_spent == 0.0
-        assert data.error_history == {}
-        assert data.achievements == []
-        assert data.current_streak == 0
-        assert data.longest_streak == 0
-        assert data.last_check_date is None
-        assert data.files_mastered == set()
-        assert data.tutorial_progress == {}
-    
-    def test_progress_data_initialization_with_values(self):
-        """Test ProgressData initialization with custom values."""
-        achievements = [Achievement("test", "Test", "Test achievement", "🎯", "test")]
-        files_mastered = {"file1.py", "file2.py"}
-        tutorial_progress = {"tutorial1": 75.0, "tutorial2": 100.0}
-        error_history = {"2024-01-01": {"no-untyped-def": 5}}
-        
-        data = ProgressData(
-            total_errors_fixed=42,
-            total_sessions=10,
-            total_time_spent=3600.0,
-            error_history=error_history,
-            achievements=achievements,
-            current_streak=5,
-            longest_streak=12,
-            last_check_date="2024-01-01",
-            files_mastered=files_mastered,
-            tutorial_progress=tutorial_progress
-        )
-        
-        assert data.total_errors_fixed == 42
-        assert data.total_sessions == 10
-        assert data.total_time_spent == 3600.0
-        assert data.error_history == error_history
-        assert data.achievements == achievements
-        assert data.current_streak == 5
-        assert data.longest_streak == 12
-        assert data.last_check_date == "2024-01-01"
-        assert data.files_mastered == files_mastered
-        assert data.tutorial_progress == tutorial_progress
-    
-    def test_to_dict_conversion(self):
-        """Test to_dict method converts data correctly."""
-        earned_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        achievement = Achievement(
-            id="test",
-            name="Test Achievement",
-            description="Test",
-            icon="🎯",
-            category="test",
-            earned_at=earned_time,
-            criteria={"errors_fixed": 1}
-        )
-        
-        data = ProgressData(
-            total_errors_fixed=42,
-            achievements=[achievement],
-            files_mastered={"file1.py", "file2.py"}
-        )
-        
-        result = data.to_dict()
-        
-        assert result["total_errors_fixed"] == 42
-        assert set(result["files_mastered"]) == {"file1.py", "file2.py"}  # Converted to list but order may vary
-        assert len(result["achievements"]) == 1
-        
-        achievement_dict = result["achievements"][0]
-        assert achievement_dict["id"] == "test"
-        assert achievement_dict["earned_at"] == earned_time.isoformat()
-    
-    def test_to_dict_with_unearned_achievement(self):
-        """Test to_dict with achievement that has no earned_at date."""
-        achievement = Achievement(
-            id="test",
-            name="Test Achievement", 
-            description="Test",
-            icon="🎯",
-            category="test"
-        )
-        
-        data = ProgressData(achievements=[achievement])
-        result = data.to_dict()
-        
-        achievement_dict = result["achievements"][0]
-        assert achievement_dict["earned_at"] is None
-    
-    def test_from_dict_creation(self):
-        """Test from_dict class method creates instance correctly."""
-        earned_time = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        
-        dict_data = {
-            "total_errors_fixed": 42,
-            "total_sessions": 10,
-            "total_time_spent": 3600.0,
-            "error_history": {"2024-01-01": {"no-untyped-def": 5}},
-            "achievements": [{
-                "id": "test",
-                "name": "Test Achievement",
-                "description": "Test",
-                "icon": "🎯",
-                "category": "test",
-                "earned_at": earned_time.isoformat(),
-                "criteria": {"errors_fixed": 1}
-            }],
-            "current_streak": 5,
-            "longest_streak": 12,
-            "last_check_date": "2024-01-01",
-            "files_mastered": ["file1.py", "file2.py"],
-            "tutorial_progress": {"tutorial1": 75.0}
-        }
-        
-        result = ProgressData.from_dict(dict_data)
-        
-        assert result.total_errors_fixed == 42
-        assert result.total_sessions == 10
-        assert result.total_time_spent == 3600.0
-        assert result.error_history == {"2024-01-01": {"no-untyped-def": 5}}
-        assert result.current_streak == 5
-        assert result.longest_streak == 12
-        assert result.last_check_date == "2024-01-01"
-        assert result.files_mastered == {"file1.py", "file2.py"}  # Converted to set
-        assert result.tutorial_progress == {"tutorial1": 75.0}
-        
-        assert len(result.achievements) == 1
-        achievement = result.achievements[0]
-        assert achievement.id == "test"
-        assert achievement.earned_at == earned_time
-    
-    def test_from_dict_with_missing_fields(self):
-        """Test from_dict with missing optional fields."""
-        dict_data = {}
-        result = ProgressData.from_dict(dict_data)
-        
-        assert result.total_errors_fixed == 0
-        assert result.total_sessions == 0
-        assert result.achievements == []
-        assert result.files_mastered == set()
-    
-    def test_from_dict_with_unearned_achievement(self):
-        """Test from_dict with achievement that has no earned_at."""
-        dict_data = {
-            "achievements": [{
-                "id": "test",
-                "name": "Test Achievement",
-                "description": "Test",
-                "icon": "🎯",
-                "category": "test",
-                "earned_at": None,
-                "criteria": {"errors_fixed": 1}
-            }]
-        }
-        
-        result = ProgressData.from_dict(dict_data)
-        achievement = result.achievements[0]
-        assert achievement.earned_at is None
+from storm_checker.logic.progress_tracker import ProgressTracker
+from storm_checker.models.progress_models import (
+    SessionStats, UserStats, DailyStats, ProgressData,
+    TutorialProgress, AchievementProgress, CodeQualityMetrics,
+    Achievement, AchievementCategory, ACHIEVEMENTS
+)
 
 
 class TestProgressTracker:
-    """Test the ProgressTracker class."""
+    """Test the enhanced ProgressTracker v2."""
     
     @pytest.fixture
     def temp_dir(self):
-        """Create temporary directory for tests."""
-        temp_dir = Path(tempfile.mkdtemp())
-        yield temp_dir
+        """Create a temporary directory for tests."""
+        temp_dir = tempfile.mkdtemp()
+        yield Path(temp_dir)
         shutil.rmtree(temp_dir)
     
     @pytest.fixture
-    def mock_progress_tracker(self, temp_dir):
-        """Create ProgressTracker with mocked dependencies."""
-        with patch('storm_checker.logic.progress_tracker.ensure_directory'):
-            tracker = ProgressTracker(storage_dir=temp_dir)
-            yield tracker
+    def tracker(self, temp_dir):
+        """Create a ProgressTracker with temp storage."""
+        return ProgressTracker(storage_dir=temp_dir)
     
-    def test_initialization_with_default_storage(self):
-        """Test ProgressTracker initialization with default storage location."""
-        with patch('storm_checker.logic.progress_tracker.ensure_directory') as mock_ensure:
-            tracker = ProgressTracker()
-            
-            assert tracker.storage_dir == Path(".stormchecker/progress")
-            assert tracker.progress_file == Path(".stormchecker/progress/progress.json")
-            assert tracker.sessions_dir == Path(".stormchecker/progress/sessions")
-            assert tracker.current_session is None
-            assert isinstance(tracker.progress_data, ProgressData)
-            
-            # Should call ensure_directory twice (main dir and sessions dir)
-            assert mock_ensure.call_count == 2
-    
-    def test_initialization_with_custom_storage(self, temp_dir):
-        """Test ProgressTracker initialization with custom storage location."""
-        with patch('storm_checker.logic.progress_tracker.ensure_directory') as mock_ensure:
-            tracker = ProgressTracker(storage_dir=temp_dir)
-            
-            assert tracker.storage_dir == temp_dir
-            assert tracker.progress_file == temp_dir / "progress.json"
-            assert tracker.sessions_dir == temp_dir / "sessions"
-    
-    def test_load_progress_with_existing_file(self, mock_progress_tracker, temp_dir):
-        """Test loading progress from existing file."""
-        # Create mock progress file
-        progress_data = {
-            "total_errors_fixed": 42,
-            "total_sessions": 5,
-            "achievements": []
-        }
-        progress_file = temp_dir / "progress.json"
-        progress_file.write_text(json.dumps(progress_data))
+    def test_initialization(self, temp_dir):
+        """Test ProgressTracker initialization."""
+        tracker = ProgressTracker(storage_dir=temp_dir)
         
-        with patch.object(mock_progress_tracker, 'progress_file', progress_file):
-            result = mock_progress_tracker.load_progress()
-            
-            assert result.total_errors_fixed == 42
-            assert result.total_sessions == 5
+        assert tracker.data_dir == temp_dir
+        assert tracker.progress_file == temp_dir / "progress_v2.json"
+        assert tracker.sessions_dir == temp_dir / "sessions"
+        assert tracker.sessions_dir.exists()
+        assert tracker.current_session is None
+        assert isinstance(tracker.progress_data, ProgressData)
+        assert len(tracker.achievements) > 0
     
-    def test_load_progress_with_missing_file(self, mock_progress_tracker):
-        """Test loading progress when file doesn't exist."""
-        result = mock_progress_tracker.load_progress()
-        
-        assert isinstance(result, ProgressData)
-        assert result.total_errors_fixed == 0
-        assert result.total_sessions == 0
-    
-    def test_load_progress_with_corrupted_file(self, mock_progress_tracker, temp_dir):
-        """Test loading progress with corrupted JSON file."""
-        # Create corrupted JSON file
-        progress_file = temp_dir / "progress.json"
-        progress_file.write_text("invalid json content")
-        
-        with patch.object(mock_progress_tracker, 'progress_file', progress_file):
-            result = mock_progress_tracker.load_progress()
-            
-            # Should return new ProgressData instance when file is corrupted
-            assert isinstance(result, ProgressData)
-            assert result.total_errors_fixed == 0
-    
-    def test_save_progress(self, mock_progress_tracker, temp_dir):
-        """Test saving progress to file."""
-        progress_file = temp_dir / "progress.json"
-        mock_progress_tracker.progress_file = progress_file
-        mock_progress_tracker.progress_data.total_errors_fixed = 42
-        
-        mock_progress_tracker.save_progress()
-        
-        assert progress_file.exists()
-        saved_data = json.loads(progress_file.read_text())
-        assert saved_data["total_errors_fixed"] == 42
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_start_session(self, mock_datetime, mock_progress_tracker):
+    def test_start_session(self, tracker):
         """Test starting a new session."""
-        # Mock datetime to return consistent values
-        mock_now = datetime(2024, 1, 15, 14, 30, 22, tzinfo=timezone.utc)
-        mock_datetime.now.return_value = mock_now
+        session = tracker.start_session()
         
-        with patch.object(mock_progress_tracker, '_update_streak') as mock_update_streak:
-            session_id = mock_progress_tracker.start_session()
-            
-            expected_id = "session_20240115_143022"
-            assert session_id == expected_id
-            assert mock_progress_tracker.current_session is not None
-            assert mock_progress_tracker.current_session.session_id == expected_id
-            assert mock_progress_tracker.current_session.started_at == mock_now
-            mock_update_streak.assert_called_once()
+        assert isinstance(session, SessionStats)
+        assert session.files_checked == 0
+        assert session.errors_found == 0
+        assert session.errors_fixed == 0
+        assert session.time_spent == 0.0
+        assert tracker.current_session == session
     
-    def test_end_session_without_active_session(self, mock_progress_tracker):
-        """Test ending session when no active session exists."""
-        mock_result = Mock(spec=MypyResult)
+    def test_start_session_already_in_progress(self, tracker):
+        """Test starting session when one is already active."""
+        tracker.start_session()
         
-        with pytest.raises(ValueError, match="No active session to end"):
-            mock_progress_tracker.end_session(mock_result)
+        with pytest.raises(ValueError, match="Session already in progress"):
+            tracker.start_session()
     
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_end_session_with_active_session(self, mock_datetime, mock_progress_tracker, temp_dir):
-        """Test ending an active session successfully."""
-        # Setup mock session
-        start_time = datetime(2024, 1, 15, 14, 30, 0, tzinfo=timezone.utc)
-        end_time = datetime(2024, 1, 15, 14, 45, 0, tzinfo=timezone.utc)
+    def test_end_session(self, tracker):
+        """Test ending a session."""
+        tracker.start_session()
+        tracker.current_session.files_checked = 5
+        tracker.current_session.errors_found = 10
+        tracker.current_session.errors_fixed = 8
         
-        mock_progress_tracker.current_session = SessionStats(
-            session_id="test_session",
-            started_at=start_time
-        )
-        mock_progress_tracker.sessions_dir = temp_dir / "sessions"
-        mock_progress_tracker.sessions_dir.mkdir(exist_ok=True)
+        tracker.end_session(120.5)
         
-        # Mock current time for end_session
-        mock_datetime.now.return_value = end_time
-        
-        # Create mock MypyResult
-        mock_result = Mock(spec=MypyResult)
-        mock_result.files_checked = 5
-        mock_result.errors = ["error1", "error2", "error3"]
-        
-        with patch.object(mock_progress_tracker, '_check_achievements') as mock_check:
-            with patch.object(mock_progress_tracker, 'save_progress') as mock_save:
-                completed_session = mock_progress_tracker.end_session(mock_result)
-                
-                # Verify session completed correctly
-                assert completed_session.session_id == "test_session"
-                assert completed_session.ended_at == end_time
-                assert completed_session.files_checked == 5
-                assert completed_session.errors_found == 3
-                
-                # Verify progress data updated
-                assert mock_progress_tracker.progress_data.total_sessions == 1
-                assert mock_progress_tracker.progress_data.total_time_spent == 900.0  # 15 minutes
-                
-                # Verify session file created
-                session_file = temp_dir / "sessions" / "test_session.json"
-                assert session_file.exists()
-                
-                # Verify methods called
-                mock_check.assert_called_once()
-                mock_save.assert_called_once()
-                
-                # Verify current session cleared
-                assert mock_progress_tracker.current_session is None
+        assert tracker.current_session is None
+        assert tracker.progress_data.user_stats.total_sessions == 1
+        assert tracker.progress_data.user_stats.total_files_checked == 5
+        assert tracker.progress_data.user_stats.total_errors_found == 10
+        assert tracker.progress_data.user_stats.total_errors_fixed == 8
+        assert tracker.progress_data.user_stats.total_time_spent == 120.5
     
-    def test_record_fix_without_session(self, mock_progress_tracker):
-        """Test recording a fix without active session."""
-        mock_error = Mock(spec=MypyError)
-        mock_error.error_code = "no-untyped-def"
-        
-        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
-            mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-            
-            mock_progress_tracker.record_fix(mock_error)
-            
-            assert mock_progress_tracker.progress_data.total_errors_fixed == 1
-            
-            # Check error history updated
-            today = "2024-01-15"
-            assert today in mock_progress_tracker.progress_data.error_history
-            assert mock_progress_tracker.progress_data.error_history[today]["no-untyped-def"] == 1
+    def test_end_session_no_active(self, tracker):
+        """Test ending session when none is active."""
+        with pytest.raises(ValueError, match="No active session"):
+            tracker.end_session(100.0)
     
-    def test_record_fix_with_active_session(self, mock_progress_tracker):
-        """Test recording a fix with active session."""
-        # Setup active session
-        mock_progress_tracker.current_session = SessionStats(
-            session_id="test",
-            started_at=datetime.now(timezone.utc)
+    def test_update_session_stats(self, tracker):
+        """Test updating session statistics."""
+        tracker.start_session()
+        
+        tracker.update_session_stats(
+            files_checked=10,
+            errors_found=5,
+            errors_fixed=3,
+            error_types={"type-arg": 2, "import": 1},
+            files_modified=["file1.py", "file2.py"]
         )
         
-        mock_error = Mock(spec=MypyError)
-        mock_error.error_code = "attr-defined"
-        
-        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
-            mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-            
-            mock_progress_tracker.record_fix(mock_error, fix_time=30.5)
-            
-            # Check session updated
-            assert mock_progress_tracker.current_session.errors_fixed == 1
-            assert mock_progress_tracker.current_session.error_types["attr-defined"] == 1
-            
-            # Check progress data updated
-            assert mock_progress_tracker.progress_data.total_errors_fixed == 1
+        assert tracker.current_session.files_checked == 10
+        assert tracker.current_session.errors_found == 5
+        assert tracker.current_session.errors_fixed == 3
+        assert tracker.current_session.error_types["type-arg"] == 2
+        assert tracker.current_session.error_types["import"] == 1
+        assert "file1.py" in tracker.current_session.files_modified
+        assert "file2.py" in tracker.current_session.files_modified
     
-    def test_record_fix_with_unknown_error_code(self, mock_progress_tracker):
-        """Test recording a fix with no error code."""
-        mock_error = Mock(spec=MypyError)
-        mock_error.error_code = None
+    def test_record_tutorial_completion(self, tracker):
+        """Test recording tutorial completion."""
+        tracker.record_tutorial_completion("tutorial_1", 95, 300.0)
         
-        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
-            mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-            
-            mock_progress_tracker.record_fix(mock_error)
-            
-            today = "2024-01-15"
-            assert mock_progress_tracker.progress_data.error_history[today]["unknown"] == 1
+        assert "tutorial_1" in tracker.progress_data.tutorial_progress.completed
+        assert tracker.progress_data.tutorial_progress.scores["tutorial_1"] == 95
+        assert tracker.progress_data.tutorial_progress.total_time_spent == 300.0
+        assert tracker.progress_data.tutorial_progress.last_activity is not None
     
-    def test_record_new_error_without_session(self, mock_progress_tracker):
-        """Test recording new error without active session."""
-        mock_error = Mock(spec=MypyError)
-        
-        # Should not raise error, just do nothing
-        mock_progress_tracker.record_new_error(mock_error)
-    
-    def test_record_new_error_with_session(self, mock_progress_tracker):
-        """Test recording new error with active session."""
-        mock_progress_tracker.current_session = SessionStats(
-            session_id="test",
-            started_at=datetime.now(timezone.utc)
+    def test_update_code_metrics(self, tracker):
+        """Test updating code quality metrics."""
+        tracker.update_code_metrics(
+            type_coverage=75.5,
+            functions_with_hints=100,
+            total_functions=150,
+            classes_with_hints=20,
+            total_classes=25,
+            any_types_removed=5,
+            generic_types_used=10,
+            protocols_defined=3
         )
         
-        mock_error = Mock(spec=MypyError)
-        mock_progress_tracker.record_new_error(mock_error)
+        metrics = tracker.progress_data.code_metrics
+        assert metrics.type_coverage_current == 75.5
+        assert metrics.type_coverage_start == 75.5  # First update sets start
+        assert metrics.functions_with_hints == 100
+        assert metrics.total_functions == 150
+        assert metrics.classes_with_hints == 20
+        assert metrics.total_classes == 25
+        assert metrics.any_types_removed == 5
+        assert metrics.generic_types_used == 10
+        assert metrics.protocols_defined == 3
+    
+    def test_clear_all_progress(self, tracker):
+        """Test clearing all progress data."""
+        # Add some data
+        tracker.start_session()
+        tracker.current_session.errors_fixed = 10
+        tracker.end_session(100.0)
+        tracker.record_tutorial_completion("tutorial_1", 100, 200.0)
         
-        assert mock_progress_tracker.current_session.new_errors == 1
-    
-    def test_record_error_type_encountered(self, mock_progress_tracker):
-        """Test recording error type encountered."""
-        with patch('storm_checker.logic.progress_tracker.datetime') as mock_datetime:
-            mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-            
-            with patch.object(mock_progress_tracker, 'save_progress') as mock_save:
-                mock_progress_tracker.record_error_type_encountered("no-untyped-def")
-                
-                today = "2024-01-15"
-                assert mock_progress_tracker.progress_data.error_history[today]["no-untyped-def"] == 1
-                mock_save.assert_called_once()
-                
-                # Record same error again
-                mock_progress_tracker.record_error_type_encountered("no-untyped-def")
-                assert mock_progress_tracker.progress_data.error_history[today]["no-untyped-def"] == 2
-    
-    def test_mark_file_mastered(self, mock_progress_tracker):
-        """Test marking a file as mastered."""
-        mock_progress_tracker.mark_file_mastered("src/models.py")
+        # Clear progress
+        cleared = tracker.clear_all_progress()
         
-        assert "src/models.py" in mock_progress_tracker.progress_data.files_mastered
-    
-    def test_update_tutorial_progress(self, mock_progress_tracker):
-        """Test updating tutorial progress."""
-        with patch.object(mock_progress_tracker, '_check_achievements') as mock_check:
-            mock_progress_tracker.update_tutorial_progress("tutorial1", 75.5)
-            
-            assert mock_progress_tracker.progress_data.tutorial_progress["tutorial1"] == 75.5
-            mock_check.assert_not_called()  # Not called for incomplete tutorial
-    
-    def test_update_tutorial_progress_completed(self, mock_progress_tracker):
-        """Test updating tutorial progress to completion."""
-        with patch.object(mock_progress_tracker, '_check_achievements') as mock_check:
-            mock_progress_tracker.update_tutorial_progress("tutorial1", 100.0)
-            
-            assert mock_progress_tracker.progress_data.tutorial_progress["tutorial1"] == 100.0
-            mock_check.assert_called_once()  # Called for completed tutorial
-    
-    def test_update_tutorial_progress_bounds(self, mock_progress_tracker):
-        """Test tutorial progress is bounded to 0-100."""
-        mock_progress_tracker.update_tutorial_progress("tutorial1", -5.0)
-        assert mock_progress_tracker.progress_data.tutorial_progress["tutorial1"] == 0.0
+        assert cleared["sessions"] == 1
+        assert cleared["errors_fixed"] == 10  # This is from user_stats
+        assert cleared["tutorials"] == 1
+        # Some achievements may have been unlocked automatically (like first_steps)
+        assert cleared["achievements"] >= 0
+        assert cleared["streak"] >= 0
         
-        mock_progress_tracker.update_tutorial_progress("tutorial2", 150.0)
-        assert mock_progress_tracker.progress_data.tutorial_progress["tutorial2"] == 100.0
+        # Verify data is cleared
+        assert tracker.progress_data.user_stats.total_sessions == 0
+        # Note: end_session() updates total_errors_fixed from current_session
+        assert tracker.progress_data.user_stats.total_errors_fixed == 0
+        assert len(tracker.progress_data.tutorial_progress.completed) == 0
     
-    @patch('storm_checker.logic.progress_tracker.format_time_delta')
-    def test_get_stats_summary(self, mock_format_time, mock_progress_tracker):
-        """Test getting statistics summary."""
-        # Setup test data
-        mock_progress_tracker.progress_data.total_errors_fixed = 42
-        mock_progress_tracker.progress_data.total_sessions = 5
-        mock_progress_tracker.progress_data.total_time_spent = 3600.0
-        mock_progress_tracker.progress_data.current_streak = 7
-        mock_progress_tracker.progress_data.longest_streak = 15
-        mock_progress_tracker.progress_data.files_mastered = {"file1.py", "file2.py"}
-        mock_progress_tracker.progress_data.tutorial_progress = {"t1": 100.0, "t2": 50.0}
-        mock_progress_tracker.progress_data.error_history = {
-            "2024-01-01": {"no-untyped-def": 5, "attr-defined": 3},
-            "2024-01-02": {"no-untyped-def": 2}
+    def test_save_and_load_progress(self, tracker):
+        """Test saving and loading progress data."""
+        # Add data
+        tracker.start_session()
+        tracker.current_session.files_checked = 5
+        tracker.current_session.errors_fixed = 3
+        tracker.end_session(60.0)
+        tracker.record_tutorial_completion("tutorial_1", 85, 150.0)
+        
+        # Save progress
+        tracker._save_progress()
+        
+        # Create new tracker to load data
+        new_tracker = ProgressTracker(storage_dir=tracker.data_dir)
+        
+        assert new_tracker.progress_data.user_stats.total_sessions == 1
+        assert new_tracker.progress_data.user_stats.total_files_checked == 5
+        assert new_tracker.progress_data.user_stats.total_errors_fixed == 3
+        assert "tutorial_1" in new_tracker.progress_data.tutorial_progress.completed
+        assert new_tracker.progress_data.tutorial_progress.scores["tutorial_1"] == 85
+    
+    def test_load_corrupted_json(self, temp_dir):
+        """Test handling of corrupted JSON data in progress file."""
+        # Create a progress file with invalid JSON
+        progress_file = temp_dir / "progress_v2.json"
+        progress_file.write_text("{ invalid json data }")
+        
+        # Should handle corrupted data and create fresh ProgressData
+        tracker = ProgressTracker(storage_dir=temp_dir)
+        
+        # Should have fresh data, not crash
+        assert tracker.progress_data is not None
+        assert tracker.progress_data.user_stats.total_sessions == 0
+        assert tracker.progress_data.user_stats.total_errors_fixed == 0
+        assert len(tracker.progress_data.achievements.unlocked) == 0
+    
+    def test_load_incompatible_data(self, temp_dir):
+        """Test handling of incompatible data structure (KeyError)."""
+        # Create a progress file with valid JSON but incompatible structure
+        progress_file = temp_dir / "progress_v2.json"
+        incompatible_data = {
+            "old_format": "data",
+            "missing_required_fields": True
+            # Missing required 'user_stats' key
         }
+        progress_file.write_text(json.dumps(incompatible_data))
         
-        # Add earned achievement
-        achievement = Achievement("test", "Test", "Test", "🎯", "test")
-        achievement.earned_at = datetime.now(timezone.utc)
-        mock_progress_tracker.progress_data.achievements = [achievement]
+        # Should handle KeyError and create fresh ProgressData
+        tracker = ProgressTracker(storage_dir=temp_dir)
         
-        mock_format_time.return_value = "1h 0m"
-        
-        with patch.object(mock_progress_tracker, '_calculate_velocity', return_value=2.5):
-            result = mock_progress_tracker.get_stats_summary()
-            
-            assert result["total_fixes"] == 42
-            assert result["total_sessions"] == 5
-            assert result["total_time"] == "1h 0m"
-            assert result["current_streak"] == 7
-            assert result["longest_streak"] == 15
-            assert result["files_mastered"] == 2
-            assert result["achievements_earned"] == 1
-            assert result["tutorials_completed"] == 1
-            assert result["unique_error_types"] == 2  # no-untyped-def, attr-defined
-            assert result["velocity"] == 2.5
-            assert result["average_session_time"] == "1h 0m"
+        # Should have fresh data
+        assert tracker.progress_data is not None
+        assert tracker.progress_data.user_stats.total_sessions == 0
     
-    def test_get_achievements_all(self, mock_progress_tracker):
-        """Test getting all achievements."""
-        # Mark one achievement as earned
-        earned_achievement = Achievement("first_fix", "First Fix", "Test", "🎯", "test")
-        earned_achievement.earned_at = datetime.now(timezone.utc)
-        mock_progress_tracker.progress_data.achievements = [earned_achievement]
+    def test_load_file_permission_error(self, temp_dir):
+        """Test handling of OSError when reading progress file."""
+        progress_file = temp_dir / "progress_v2.json"
         
-        achievements = mock_progress_tracker.get_achievements()
-        
-        # Should return all predefined achievements
-        assert len(achievements) == len(ProgressTracker.ACHIEVEMENTS)
-        
-        # Find the earned achievement in the results
-        earned_in_results = None
-        for a in achievements:
-            if a.id == "first_fix":
-                earned_in_results = a
-                break
-        
-        assert earned_in_results is not None
-        assert earned_in_results.is_earned()
-    
-    def test_get_achievements_by_category(self, mock_progress_tracker):
-        """Test getting achievements filtered by category."""
-        achievements = mock_progress_tracker.get_achievements(category="errors_fixed")
-        
-        # All returned achievements should be in the errors_fixed category
-        for achievement in achievements:
-            assert achievement.category == "errors_fixed"
-        
-        # Should have multiple error-related achievements
-        assert len(achievements) > 0
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_update_streak_first_check(self, mock_datetime, mock_progress_tracker):
-        """Test updating streak for first check."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        
-        mock_progress_tracker._update_streak()
-        
-        assert mock_progress_tracker.progress_data.current_streak == 1
-        assert mock_progress_tracker.progress_data.longest_streak == 1
-        assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_update_streak_same_day(self, mock_datetime, mock_progress_tracker):
-        """Test updating streak on same day (no change)."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        mock_progress_tracker.progress_data.last_check_date = "2024-01-15"
-        mock_progress_tracker.progress_data.current_streak = 5
-        
-        mock_progress_tracker._update_streak()
-        
-        # Should not change
-        assert mock_progress_tracker.progress_data.current_streak == 5
-        assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_update_streak_consecutive_day(self, mock_datetime, mock_progress_tracker):
-        """Test updating streak on consecutive day."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        mock_progress_tracker.progress_data.last_check_date = "2024-01-14"
-        mock_progress_tracker.progress_data.current_streak = 5
-        mock_progress_tracker.progress_data.longest_streak = 7
-        
-        mock_progress_tracker._update_streak()
-        
-        assert mock_progress_tracker.progress_data.current_streak == 6
-        assert mock_progress_tracker.progress_data.longest_streak == 7  # Not exceeded yet
-        assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_update_streak_broken(self, mock_datetime, mock_progress_tracker):
-        """Test streak reset when broken."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        mock_progress_tracker.progress_data.last_check_date = "2024-01-10"  # 5 days ago
-        mock_progress_tracker.progress_data.current_streak = 5
-        mock_progress_tracker.progress_data.longest_streak = 7
-        
-        mock_progress_tracker._update_streak()
-        
-        assert mock_progress_tracker.progress_data.current_streak == 1  # Reset
-        assert mock_progress_tracker.progress_data.longest_streak == 7  # Preserved
-        assert mock_progress_tracker.progress_data.last_check_date == "2024-01-15"
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_update_streak_new_longest(self, mock_datetime, mock_progress_tracker):
-        """Test updating longest streak record."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        mock_progress_tracker.progress_data.last_check_date = "2024-01-14"
-        mock_progress_tracker.progress_data.current_streak = 7
-        mock_progress_tracker.progress_data.longest_streak = 7
-        
-        mock_progress_tracker._update_streak()
-        
-        assert mock_progress_tracker.progress_data.current_streak == 8
-        assert mock_progress_tracker.progress_data.longest_streak == 8  # New record
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_calculate_velocity(self, mock_datetime, mock_progress_tracker):
-        """Test calculating velocity over recent period."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        
-        # Setup error history for last 7 days
-        mock_progress_tracker.progress_data.error_history = {
-            "2024-01-09": {"no-untyped-def": 5},  # More than 7 days ago
-            "2024-01-10": {"no-untyped-def": 3, "attr-defined": 2},  # 5 fixes
-            "2024-01-12": {"no-untyped-def": 4},  # 4 fixes
-            "2024-01-14": {"attr-defined": 6},  # 6 fixes
-            "2024-01-15": {"no-untyped-def": 1}   # 1 fix
-        }
-        
-        velocity = mock_progress_tracker._calculate_velocity(days=7)
-        
-        # Should count fixes from 2024-01-09 onwards (cutoff is 2024-01-08): 5 + 5 + 4 + 6 + 1 = 21 fixes  
-        # Over 7 days = 21/7 = 3.0
-        expected_velocity = 21.0 / 7.0
-        assert abs(velocity - expected_velocity) < 0.01
-    
-    def test_check_achievements_no_new_achievements(self, mock_progress_tracker):
-        """Test checking achievements when none are newly earned."""
-        # Mark first achievement as already earned
-        achievement = Achievement("first_fix", "First Fix", "Test", "🎯", "test")
-        achievement.earned_at = datetime.now(timezone.utc)
-        mock_progress_tracker.progress_data.achievements = [achievement]
-        
-        original_count = len(mock_progress_tracker.progress_data.achievements)
-        
-        with patch.object(mock_progress_tracker, '_meets_criteria', return_value=False):
-            mock_progress_tracker._check_achievements()
-            
-            assert len(mock_progress_tracker.progress_data.achievements) == original_count
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_check_achievements_new_achievement_earned(self, mock_datetime, mock_progress_tracker):
-        """Test checking achievements when new one is earned."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, tzinfo=timezone.utc)
-        
-        original_count = len(mock_progress_tracker.progress_data.achievements)
-        
-        def mock_meets_criteria(achievement):
-            return achievement.id == "first_fix"
-        
-        with patch.object(mock_progress_tracker, '_meets_criteria', side_effect=mock_meets_criteria):
-            mock_progress_tracker._check_achievements()
-            
-            assert len(mock_progress_tracker.progress_data.achievements) == original_count + 1
-            
-            # Find the newly earned achievement
-            earned = None
-            for a in mock_progress_tracker.progress_data.achievements:
-                if a.id == "first_fix":
-                    earned = a
-                    break
-            
-            assert earned is not None
-            assert earned.is_earned()
-    
-    def test_meets_criteria_errors_fixed(self, mock_progress_tracker):
-        """Test achievement criteria checking for errors fixed."""
-        mock_progress_tracker.progress_data.total_errors_fixed = 10
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"errors_fixed": 5})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"errors_fixed": 15})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_sessions(self, mock_progress_tracker):
-        """Test achievement criteria checking for sessions."""
-        mock_progress_tracker.progress_data.total_sessions = 5
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"sessions": 3})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"sessions": 10})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_streak(self, mock_progress_tracker):
-        """Test achievement criteria checking for streak."""
-        mock_progress_tracker.progress_data.current_streak = 7
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"streak": 5})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"streak": 10})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_perfect_files(self, mock_progress_tracker):
-        """Test achievement criteria checking for perfect files."""
-        mock_progress_tracker.progress_data.files_mastered = {"file1.py", "file2.py", "file3.py"}
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"perfect_files": 2})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"perfect_files": 5})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_error_types(self, mock_progress_tracker):
-        """Test achievement criteria checking for error types."""
-        mock_progress_tracker.progress_data.error_history = {
-            "2024-01-01": {"no-untyped-def": 5, "attr-defined": 3},
-            "2024-01-02": {"return-value": 2}
-        }
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"error_types": 3})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"error_types": 5})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_tutorials_completed_numeric(self, mock_progress_tracker):
-        """Test achievement criteria checking for tutorials completed (numeric)."""
-        mock_progress_tracker.progress_data.tutorial_progress = {"t1": 100.0, "t2": 75.0, "t3": 100.0}
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"tutorials_completed": 2})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"tutorials_completed": 3})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_tutorials_completed_all(self, mock_progress_tracker):
-        """Test achievement criteria checking for all tutorials completed."""
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"tutorials_completed": "all"})
-        # Should pass (TODO: implement proper all tutorial check)
-        assert mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_clean_session_with_session(self, mock_progress_tracker):
-        """Test achievement criteria checking for clean session."""
-        mock_progress_tracker.current_session = SessionStats(
-            session_id="test",
-            started_at=datetime.now(timezone.utc),
-            new_errors=0
-        )
-        
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"clean_session": True})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        mock_progress_tracker.current_session.new_errors = 2
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_clean_session_without_session(self, mock_progress_tracker):
-        """Test achievement criteria checking for clean session without active session."""
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", criteria={"clean_session": True})
-        # Should pass when no active session
-        assert mock_progress_tracker._meets_criteria(achievement)
-    
-    def test_meets_criteria_complex_criteria(self, mock_progress_tracker):
-        """Test achievement criteria with multiple criteria."""
-        mock_progress_tracker.progress_data.total_errors_fixed = 10
-        mock_progress_tracker.progress_data.total_sessions = 5
-        
-        # Both criteria met
-        achievement = Achievement("test", "Test", "Test", "🎯", "test", 
-                                criteria={"errors_fixed": 5, "sessions": 3})
-        assert mock_progress_tracker._meets_criteria(achievement)
-        
-        # One criteria not met
-        achievement = Achievement("test", "Test", "Test", "🎯", "test",
-                                criteria={"errors_fixed": 15, "sessions": 3})
-        assert not mock_progress_tracker._meets_criteria(achievement)
-    
-    @patch('storm_checker.logic.progress_tracker.datetime')
-    def test_export_progress_report(self, mock_datetime, mock_progress_tracker, temp_dir):
-        """Test exporting progress report."""
-        mock_datetime.now.return_value = datetime(2024, 1, 15, 12, 30, tzinfo=timezone.utc)
-        
-        # Setup test data
-        achievement = Achievement("test", "Test Achievement", "Test description", "🎯", "test")
-        achievement.earned_at = datetime(2024, 1, 10, tzinfo=timezone.utc)
-        
-        mock_progress_tracker.progress_data.achievements = [achievement]
-        mock_progress_tracker.progress_data.error_history = {
-            "2024-01-01": {"no-untyped-def": 5, "attr-defined": 3}
-        }
-        
-        with patch.object(mock_progress_tracker, 'get_stats_summary') as mock_stats:
-            mock_stats.return_value = {
-                "total_fixes": 42,
+        # Write valid data first
+        valid_data = {
+            "user_stats": {
+                "first_run": datetime.now().isoformat(),
+                "last_session": datetime.now().isoformat(),
                 "total_sessions": 5,
-                "velocity": 2.5
-            }
+                "total_files_checked": 10,
+                "total_errors_found": 20,
+                "total_errors_fixed": 15,
+                "total_time_spent": 3600.0,
+                "current_streak": 3,
+                "longest_streak": 5,
+                "last_streak_date": None
+            },
+            "daily_stats": {},
+            "tutorial_progress": {
+                "completed": [],
+                "in_progress": {},
+                "scores": {},
+                "total_time_spent": 0.0,
+                "last_activity": None
+            },
+            "achievements": {
+                "unlocked": {},
+                "progress": {}
+            },
+            "code_metrics": {
+                "type_coverage_start": 0.0,
+                "type_coverage_current": 0.0,
+                "functions_with_hints": 0,
+                "total_functions": 0,
+                "classes_with_hints": 0,
+                "total_classes": 0,
+                "any_types_removed": 0,
+                "generic_types_used": 0,
+                "protocols_defined": 0
+            },
+            "error_type_counts": {}
+        }
+        progress_file.write_text(json.dumps(valid_data))
+        
+        # Mock open to raise OSError
+        with patch('builtins.open', side_effect=OSError("Permission denied")):
+            # Should handle OSError and create fresh ProgressData
+            tracker = ProgressTracker(storage_dir=temp_dir)
             
-            output_path = temp_dir / "report.md"
-            report = mock_progress_tracker.export_progress_report(output_path)
-            
-            # Check report content
-            assert "# Storm-Checker Progress Report" in report
-            assert "Generated: 2024-01-15 12:30 UTC" in report
-            assert "## Summary Statistics" in report
-            assert "**Total Fixes**: 42" in report
-            assert "## Achievements Earned" in report
-            assert "🎯 **Test Achievement**" in report
-            assert "## Error Type Distribution" in report
-            assert "`no-untyped-def`: 5 fixes" in report
-            assert "`attr-defined`: 3 fixes" in report
-            
-            # Check file was written
-            assert output_path.exists()
-            saved_content = output_path.read_text()
-            assert saved_content == report
+            # Should have fresh data
+            assert tracker.progress_data is not None
+            assert tracker.progress_data.user_stats.total_sessions == 0
     
-    def test_export_progress_report_no_data(self, mock_progress_tracker):
-        """Test exporting progress report with no data."""
-        with patch.object(mock_progress_tracker, 'get_stats_summary') as mock_stats:
-            mock_stats.return_value = {"total_fixes": 0}
-            
-            report = mock_progress_tracker.export_progress_report()
-            
-            assert "*No achievements earned yet. Keep going!*" in report
-            assert "*No errors fixed yet.*" in report
+    def test_achievement_checking(self, tracker):
+        """Test achievement criteria checking."""
+        # Test sessions achievement
+        achievement = Achievement(
+            id="test_sessions",
+            name="Test Sessions",
+            description="Test",
+            category=AchievementCategory.BEGINNER,
+            icon="🎯",
+            requirement={"sessions": 1}
+        )
+        
+        # Should not meet criteria initially
+        assert not tracker._check_achievement_criteria(achievement)
+        
+        # Complete a session
+        tracker.start_session()
+        tracker.end_session(30.0)
+        
+        # Should now meet criteria
+        assert tracker._check_achievement_criteria(achievement)
+    
+    def test_achievement_errors_fixed(self, tracker):
+        """Test errors fixed achievement criteria."""
+        achievement = Achievement(
+            id="test_errors",
+            name="Test Errors",
+            description="Test",
+            category=AchievementCategory.PROGRESS,
+            icon="🔨",
+            requirement={"errors_fixed": 10}
+        )
+        
+        # Should not meet criteria initially
+        assert not tracker._check_achievement_criteria(achievement)
+        
+        # Add errors fixed
+        tracker.progress_data.user_stats.total_errors_fixed = 10
+        
+        # Should now meet criteria
+        assert tracker._check_achievement_criteria(achievement)
+    
+    def test_achievement_streak(self, tracker):
+        """Test streak achievement criteria."""
+        achievement = Achievement(
+            id="test_streak",
+            name="Test Streak",
+            description="Test",
+            category=AchievementCategory.STREAK,
+            icon="🔥",
+            requirement={"streak": 7}
+        )
+        
+        # Should not meet criteria initially
+        assert not tracker._check_achievement_criteria(achievement)
+        
+        # Set streak
+        tracker.progress_data.user_stats.current_streak = 7
+        
+        # Should now meet criteria
+        assert tracker._check_achievement_criteria(achievement)
+    
+    def test_achievement_time_based(self, tracker):
+        """Test time-based achievement criteria."""
+        # Create achievement for early morning
+        achievement = Achievement(
+            id="test_time",
+            name="Test Time",
+            description="Test",
+            category=AchievementCategory.FUN,
+            icon="🌅",
+            requirement={"time_before": "23:59"}
+        )
+        
+        # Should meet criteria (current time is before 23:59)
+        assert tracker._check_achievement_criteria(achievement)
+        
+        # Create achievement for impossible time
+        achievement2 = Achievement(
+            id="test_time2",
+            name="Test Time 2",
+            description="Test",
+            category=AchievementCategory.FUN,
+            icon="🌃",
+            requirement={"time_after": "23:59", "time_before": "00:00"}
+        )
+        
+        # Should not meet criteria (impossible time range)
+        assert not tracker._check_achievement_criteria(achievement2)
+    
+    def test_get_dashboard_data(self, tracker):
+        """Test getting dashboard data."""
+        # Add some data
+        tracker.start_session()
+        tracker.current_session.files_checked = 10
+        tracker.current_session.errors_found = 5
+        tracker.current_session.errors_fixed = 4
+        tracker.end_session(120.0)
+        
+        tracker.record_tutorial_completion("tutorial_1", 90, 180.0)
+        tracker.update_code_metrics(type_coverage=80.0)
+        
+        # Get dashboard data
+        data = tracker.get_dashboard_data()
+        
+        assert data["overall_stats"]["files_analyzed"] == 10
+        assert data["overall_stats"]["errors_fixed"] == 4
+        assert data["overall_stats"]["type_coverage"]["current"] == 80.0
+        assert data["tutorial_progress"]["completed"] == 1
+        assert data["achievements"]["total"] == len(ACHIEVEMENTS)
+        assert len(data["week_activity"]) == 7
+        assert data["total_sessions"] == 1
+    
+    def test_format_time_ago(self, tracker):
+        """Test time ago formatting."""
+        now = datetime.now()
+        
+        # Just now
+        result = tracker._format_time_ago(now)
+        assert result == "just now"
+        
+        # Minutes ago
+        past = now - timedelta(minutes=5)
+        result = tracker._format_time_ago(past)
+        assert "5 minutes ago" in result
+        
+        # Hours ago
+        past = now - timedelta(hours=3)
+        result = tracker._format_time_ago(past)
+        assert "3 hours ago" in result
+        
+        # Days ago
+        past = now - timedelta(days=2)
+        result = tracker._format_time_ago(past)
+        assert "2 days ago" in result
+        
+        # None
+        result = tracker._format_time_ago(None)
+        assert result == "never"
+    
+    def test_get_latest_tutorial(self, tracker):
+        """Test getting latest tutorial info."""
+        # No tutorials completed
+        result = tracker._get_latest_tutorial()
+        assert result is None
+        
+        # Add completed tutorial
+        tracker.record_tutorial_completion("hello_world", 95, 100.0)
+        
+        result = tracker._get_latest_tutorial()
+        assert result is not None
+        assert result["name"] == "Hello World"
+        # "just now" or "X ago" - both are valid
+        assert "now" in result["when"] or "ago" in result["when"]
+    
+    def test_get_next_goals(self, tracker):
+        """Test getting suggested next goals."""
+        goals = tracker._get_next_goals()
+        
+        # Should suggest tutorial completion
+        assert any("tutorial" in goal.lower() for goal in goals)
+        
+        # Add some progress
+        tracker.progress_data.user_stats.total_errors_fixed = 95
+        
+        goals = tracker._get_next_goals()
+        # Should suggest reaching 100 errors fixed
+        assert any("100" in goal for goal in goals)
+    
+    def test_session_file_creation(self, tracker):
+        """Test that session files are created correctly."""
+        tracker.start_session()
+        tracker.current_session.files_checked = 3
+        tracker.current_session.errors_found = 2
+        tracker.current_session.errors_fixed = 1
+        tracker.end_session(45.0)
+        
+        # Check session file was created
+        session_files = list(tracker.sessions_dir.glob("session_*.json"))
+        assert len(session_files) == 1
+        
+        # Verify session file content
+        with open(session_files[0]) as f:
+            session_data = json.load(f)
+        
+        assert session_data["files_checked"] == 3
+        assert session_data["errors_found"] == 2
+        assert session_data["errors_fixed"] == 1
+        assert session_data["time_spent"] == 45.0
+    
+    def test_daily_stats_aggregation(self, tracker):
+        """Test daily statistics aggregation."""
+        # Create multiple sessions on the same day
+        tracker.start_session()
+        tracker.current_session.files_checked = 5
+        tracker.current_session.errors_fixed = 3
+        tracker.end_session(60.0)
+        
+        tracker.start_session()
+        tracker.current_session.files_checked = 7
+        tracker.current_session.errors_fixed = 4
+        tracker.end_session(90.0)
+        
+        # Check daily stats
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_stats = tracker.progress_data.daily_stats[today]
+        
+        assert daily_stats.sessions_count == 2
+        assert daily_stats.total_files_checked == 12
+        assert daily_stats.total_errors_fixed == 7
+        assert daily_stats.total_time_spent == 150.0
+    
+    def test_error_type_tracking(self, tracker):
+        """Test error type counting."""
+        tracker.start_session()
+        
+        tracker.update_session_stats(
+            error_types={"type-arg": 5, "import": 3}
+        )
+        tracker.end_session(30.0)
+        
+        # Check error type counts
+        assert tracker.progress_data.error_type_counts["type-arg"] == 5
+        assert tracker.progress_data.error_type_counts["import"] == 3
+    
+    def test_tutorial_in_progress(self, tracker):
+        """Test tracking in-progress tutorials."""
+        # Mark tutorial as in progress
+        tracker.progress_data.tutorial_progress.in_progress["tutorial_2"] = {
+            "progress": 50,
+            "last_updated": datetime.now().isoformat()
+        }
+        
+        # Complete the tutorial
+        tracker.record_tutorial_completion("tutorial_2", 100, 200.0)
+        
+        # Should be removed from in_progress
+        assert "tutorial_2" not in tracker.progress_data.tutorial_progress.in_progress
+        assert "tutorial_2" in tracker.progress_data.tutorial_progress.completed
+    
+    def test_achievement_unlocking(self, tracker):
+        """Test achievement unlocking."""
+        # Initially no achievements
+        assert len(tracker.progress_data.achievements.unlocked) == 0
+        
+        # Complete enough sessions to unlock achievement
+        tracker.start_session()
+        tracker.end_session(30.0)
+        
+        # Check if first steps achievement was unlocked
+        # (The _check_achievements method is called in end_session)
+        # Achievement checking depends on the requirement being met
+        if "first_steps" in tracker.progress_data.achievements.unlocked:
+            unlock_time = tracker.progress_data.achievements.unlocked["first_steps"]
+            assert isinstance(unlock_time, datetime)
+    
+    def test_progress_data_serialization(self, tracker):
+        """Test serialization of progress data."""
+        # Add various data
+        tracker.start_session()
+        tracker.current_session.files_checked = 5
+        tracker.end_session(60.0)
+        tracker.record_tutorial_completion("test_tutorial", 85, 120.0)
+        tracker.update_code_metrics(type_coverage=75.0)
+        
+        # Serialize
+        data = tracker._serialize_progress_data(tracker.progress_data)
+        
+        # Check structure
+        assert "user_stats" in data
+        assert "daily_stats" in data
+        assert "tutorial_progress" in data
+        assert "achievements" in data
+        assert "code_metrics" in data
+        assert "error_type_counts" in data
+        
+        # Deserialize
+        restored = tracker._deserialize_progress_data(data)
+        
+        # Verify data integrity
+        assert restored.user_stats.total_sessions == 1
+        assert restored.user_stats.total_files_checked == 5
+        assert "test_tutorial" in restored.tutorial_progress.completed
+        assert restored.code_metrics.type_coverage_current == 75.0

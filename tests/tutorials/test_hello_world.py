@@ -7,7 +7,7 @@ Test the introductory tutorial functionality.
 import pytest
 from storm_checker.tutorials.hello_world import HelloWorldTutorial
 from .base import BaseTutorialTest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 
 class TestHelloWorldTutorial(BaseTutorialTest):
@@ -67,6 +67,18 @@ class TestHelloWorldTutorial(BaseTutorialTest):
         exercise = tutorial.practice_exercise
         assert "stormcheck" in exercise.lower(), "Practice should mention stormcheck command"
     
+    def test_demo_function(self):
+        """Test the demo() function directly to achieve 100% coverage."""
+        from storm_checker.tutorials.hello_world import demo, HelloWorldTutorial
+        
+        # Mock the run method to avoid actual tutorial execution
+        with patch.object(HelloWorldTutorial, 'run') as mock_run:
+            # Call demo function
+            demo()
+            
+            # Verify that a tutorial was instantiated and run was called
+            mock_run.assert_called_once()
+    
     def test_hello_world_no_advanced_concepts(self, tutorial):
         """Test that tutorial doesn't include advanced concepts."""
         # Simplified check for just the most common advanced terms
@@ -96,7 +108,7 @@ class TestHelloWorldTutorial(BaseTutorialTest):
     
     def test_demo_function_exists(self):
         """Test that the demo function exists and is callable."""
-        from tutorials.hello_world import demo
+        from storm_checker.tutorials.hello_world import demo
         assert callable(demo), "demo function should be callable"
         # Note: We don't actually call demo() here as it would start the interactive tutorial
     
@@ -111,7 +123,7 @@ class TestHelloWorldTutorial(BaseTutorialTest):
             
         # Mock the run method to avoid expensive imports
         # Import modules first, then set up mocks
-        from tutorials.hello_world import HelloWorldTutorial, demo
+        from storm_checker.tutorials.hello_world import HelloWorldTutorial, demo
         monkeypatch.setattr(HelloWorldTutorial, 'run', mock_run)
         
         # Call demo - the tutorial will be created but run() will be mocked

@@ -4,15 +4,26 @@
 
 set -e  # Exit on error
 
-# Storm Checker Brand Colors (lightning/storm theme)
+# Storm Checker Brand Colors (matching the official color palette)
 if [ -t 1 ] && [ -z "$CI" ]; then
-    STORM_BLUE='\033[38;2;59;130;246m'      # Lightning blue
-    STORM_PURPLE='\033[38;2;147;51;234m'    # Storm purple
-    STORM_GREEN='\033[38;2;34;197;94m'      # Success green
-    STORM_YELLOW='\033[38;2;250;204;21m'    # Warning yellow
-    STORM_RED='\033[38;2;239;68;68m'        # Error red
-    STORM_CYAN='\033[38;2;34;211;238m'      # Info cyan
-    STORM_WHITE='\033[38;2;248;250;252m'    # Bright white
+    # Primary colors
+    STORM_BLUE='\033[38;2;65;135;145m'      # Teal blue (#418791)
+    STORM_PURPLE='\033[38;2;177;49;127m'    # Magenta (#b1317f)
+    
+    # Status colors
+    STORM_GREEN='\033[38;2;70;107;93m'      # Sage green (#466b5d)
+    STORM_YELLOW='\033[38;2;204;171;120m'   # Golden (#ccab78)
+    STORM_RED='\033[38;2;156;82;90m'        # Rose (#9c525a)
+    
+    # Info and text colors
+    STORM_CYAN='\033[38;2;88;122;132m'      # Steel blue (#587a84)
+    STORM_WHITE='\033[38;2;219;219;208m'    # Light gray (#dbdbd0)
+    
+    # Additional accent colors
+    STORM_GOLD='\033[38;2;255;204;103m'     # Gold yellow (#ffcc67)
+    STORM_NAVY='\033[38;2;0;49;144m'        # Navy blue (#003190)
+    STORM_FOREST='\033[38;2;54;79;51m'      # Forest dark (#364f33)
+    
     NC='\033[0m' # No Color
 else
     STORM_BLUE=''
@@ -22,6 +33,9 @@ else
     STORM_RED=''
     STORM_CYAN=''
     STORM_WHITE=''
+    STORM_GOLD=''
+    STORM_NAVY=''
+    STORM_FOREST=''
     NC=''
 fi
 
@@ -139,19 +153,19 @@ trap cleanup EXIT
 display_banner() {
     echo -e "${STORM_BLUE}╔════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${STORM_BLUE}║                                                                    ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}███████╗${STORM_BLUE}████████╗ ██████╗ ██████╗ ███╗   ███╗                   ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}██╔════╝${STORM_BLUE}╚══██╔══╝██╔═══██╗██╔══██╗████╗ ████║                   ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}███████╗${STORM_BLUE}   ██║   ██║   ██║██████╔╝██╔████╔██║                   ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}╚════██║${STORM_BLUE}   ██║   ██║   ██║██╔══██╗██║╚██╔╝██║                   ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}███████║${STORM_BLUE}   ██║   ╚██████╔╝██║  ██║██║ ╚═╝ ██║                   ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_YELLOW}╚══════╝${STORM_BLUE}   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}███████╗████████╗ ██████╗ ██████╗ ███╗   ███╗${STORM_BLUE}                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗████╗ ████║${STORM_BLUE}                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}███████╗   ██║   ██║   ██║██████╔╝██╔████╔██║${STORM_BLUE}                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}╚════██║   ██║   ██║   ██║██╔══██╗██║╚██╔╝██║${STORM_BLUE}                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}███████║   ██║   ╚██████╔╝██║  ██║██║ ╚═╝ ██║${STORM_BLUE}                   ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_GOLD}╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝${STORM_BLUE}                   ║${NC}"
     echo -e "${STORM_BLUE}║                                                                    ║${NC}"
-    echo -e "${STORM_BLUE}║   ${STORM_WHITE}█████╗${STORM_PURPLE}██╗  ██╗███████╗ █████╗ ██╗  ██╗███████╗██████╗         ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_WHITE}██╔══██╗${STORM_PURPLE}██║  ██║██╔════╝██╔══██╗██║ ██╔╝██╔════╝██╔══██╗        ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_WHITE}██║  ╚═╝${STORM_PURPLE}███████║█████╗  ██║  ╚═╝█████═╝ █████╗  ██████╔╝        ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_WHITE}██║  ██╗${STORM_PURPLE}██╔══██║██╔══╝  ██║  ██╗██╔═██╗ ██╔══╝  ██╔══██╗        ║${NC}"
-    echo -e "${STORM_BLUE}║  ${STORM_WHITE}╚█████╔╝${STORM_PURPLE}██║  ██║███████╗╚█████╔╝██║ ╚██╗███████╗██║  ██║        ║${NC}"
-    echo -e "${STORM_BLUE}║   ${STORM_WHITE}╚════╝${STORM_PURPLE} ╚═╝  ╚═╝╚══════╝ ╚════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝        ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_PURPLE} █████╗██╗  ██╗███████╗ █████╗ ██╗  ██╗███████╗██████╗${STORM_BLUE}         ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_PURPLE}██╔══██╗██║  ██║██╔════╝██╔══██╗██║ ██╔╝██╔════╝██╔══██╗${STORM_BLUE}        ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_PURPLE}██║  ╚═╝███████║█████╗  ██║  ╚═╝█████═╝ █████╗  ██████╔╝${STORM_BLUE}        ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_PURPLE}██║  ██╗██╔══██║██╔══╝  ██║  ██╗██╔═██╗ ██╔══╝  ██╔══██╗${STORM_BLUE}        ║${NC}"
+    echo -e "${STORM_BLUE}║  ${STORM_PURPLE}╚█████╔╝██║  ██║███████╗╚█████╔╝██║ ╚██╗███████╗██║  ██║${STORM_BLUE}        ║${NC}"
+    echo -e "${STORM_BLUE}║   ${STORM_PURPLE}╚════╝ ╚═╝  ╚═╝╚══════╝ ╚════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝${STORM_BLUE}        ║${NC}"
     echo -e "${STORM_BLUE}║                                                                    ║${NC}"
     echo -e "${STORM_BLUE}║       ${STORM_CYAN}Intelligent Python Code Quality Analysis${STORM_BLUE}                   ║${NC}"
     echo -e "${STORM_BLUE}║     ${STORM_GREEN}⚡ Type Checking Made Simple & Engaging ⚡${STORM_BLUE}                ║${NC}"
@@ -703,9 +717,9 @@ fi
 # ==========================================
 
 echo ""
-echo -e "${STORM_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${STORM_YELLOW}║                   ⚡ DEPLOYMENT SUCCESSFUL! ⚡                ║${NC}"
-echo -e "${STORM_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${STORM_GOLD}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${STORM_GOLD}║                   ${STORM_GREEN}⚡ DEPLOYMENT SUCCESSFUL! ⚡${STORM_GOLD}                ║${NC}"
+echo -e "${STORM_GOLD}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${STORM_CYAN}Package Information:${NC}"
 echo -e "  ${STORM_BLUE}Name:${NC}        storm-checker"
@@ -730,7 +744,7 @@ echo -e "  ${STORM_BLUE}CLI Test:${NC}           ${STORM_GREEN}PASSED${NC}"
 
 echo ""
 echo -e "${STORM_PURPLE}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${STORM_PURPLE}║      ⚡ Type Checking Made Simple & Engaging ⚡              ║${NC}"
+echo -e "${STORM_PURPLE}║      ${STORM_GREEN}⚡ Type Checking Made Simple & Engaging ⚡${STORM_PURPLE}              ║${NC}"
 echo -e "${STORM_PURPLE}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
 # Generate deployment summary

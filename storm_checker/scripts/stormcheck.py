@@ -72,27 +72,36 @@ def main():
     if args.command == 'mypy':
         # Import and run the mypy checker
         try:
-            from scripts.check_mypy import main as mypy_main
+            from storm_checker.scripts.check_mypy import main as mypy_main
         except ImportError:
-            from check_mypy import main as mypy_main
+            try:
+                from scripts.check_mypy import main as mypy_main
+            except ImportError:
+                from check_mypy import main as mypy_main
         # Restore the remaining args for mypy parser
         sys.argv = ['check_mypy.py'] + remaining
         mypy_main()
     elif args.command == 'tutorial':
         # Import and run the tutorial system
         try:
-            from scripts.tutorial import main as tutorial_main
+            from storm_checker.scripts.tutorial import main as tutorial_main
         except ImportError:
-            from tutorial import main as tutorial_main
+            try:
+                from scripts.tutorial import main as tutorial_main
+            except ImportError:
+                from tutorial import main as tutorial_main
         # Restore the remaining args for tutorial parser
         sys.argv = ['tutorial.py'] + remaining
         tutorial_main()
     elif args.command == 'progress':
         # Import and run the progress system
         try:
-            from scripts.progress import main as progress_main
+            from storm_checker.scripts.progress import main as progress_main
         except ImportError:
-            from progress import main as progress_main
+            try:
+                from scripts.progress import main as progress_main
+            except ImportError:
+                from progress import main as progress_main
         # Restore the remaining args for progress parser
         sys.argv = ['progress.py'] + remaining
         progress_main()
