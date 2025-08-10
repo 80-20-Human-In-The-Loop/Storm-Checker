@@ -474,3 +474,168 @@ class TestOtherProgressFunctions:
         assert "Total Time Learning: 60.0 minutes" in print_calls
         assert "Average Score: 91.5%" in print_calls
         assert "Last Activity: today" in print_calls
+    
+    @patch('storm_checker.scripts.progress.print_header')
+    @patch('builtins.print')
+    def test_show_tutorials_last_activity_yesterday(self, mock_print, mock_header):
+        """Test show_tutorials with last activity yesterday."""
+        tracker = Mock()
+        tracker.progress_data = Mock()
+        tutorial_progress = Mock()
+        tutorial_progress.completed = ["hello_world"]
+        tutorial_progress.scores = {"hello_world": 95}
+        tutorial_progress.in_progress = {}
+        tutorial_progress.total_time_spent = 3600
+        tutorial_progress.average_score = 95
+        tutorial_progress.last_activity = datetime.now() - timedelta(days=1)
+        tracker.progress_data.tutorial_progress = tutorial_progress
+        
+        show_tutorials(tracker)
+        
+        print_calls = str(mock_print.call_args_list)
+        assert "Last Activity: yesterday" in print_calls
+    
+    @patch('storm_checker.scripts.progress.print_header')
+    @patch('builtins.print')
+    def test_show_tutorials_last_activity_days_ago(self, mock_print, mock_header):
+        """Test show_tutorials with last activity several days ago."""
+        tracker = Mock()
+        tracker.progress_data = Mock()
+        tutorial_progress = Mock()
+        tutorial_progress.completed = ["hello_world"]
+        tutorial_progress.scores = {"hello_world": 95}
+        tutorial_progress.in_progress = {}
+        tutorial_progress.total_time_spent = 3600
+        tutorial_progress.average_score = 95
+        tutorial_progress.last_activity = datetime.now() - timedelta(days=5)
+        tracker.progress_data.tutorial_progress = tutorial_progress
+        
+        show_tutorials(tracker)
+        
+        print_calls = str(mock_print.call_args_list)
+        assert "Last Activity: 5 days ago" in print_calls
+
+
+class TestMainFunction:
+    """Test the main entry point function."""
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.show_progress')
+    @patch('sys.argv', ['progress.py'])
+    def test_main_default(self, mock_show_progress, mock_tracker_class):
+        """Test main with no arguments shows progress dashboard."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_show_progress.assert_called_once_with(mock_tracker)
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.clear_progress')
+    @patch('sys.argv', ['progress.py', '--clear'])
+    def test_main_clear(self, mock_clear_progress, mock_tracker_class):
+        """Test main with --clear flag."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_clear_progress.assert_called_once_with(mock_tracker)
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.export_progress')
+    @patch('sys.argv', ['progress.py', '--export', 'json'])
+    def test_main_export_json(self, mock_export_progress, mock_tracker_class):
+        """Test main with --export json."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_export_progress.assert_called_once_with(mock_tracker, 'json')
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.export_progress')
+    @patch('sys.argv', ['progress.py', '--export', 'csv'])
+    def test_main_export_csv(self, mock_export_progress, mock_tracker_class):
+        """Test main with --export csv."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_export_progress.assert_called_once_with(mock_tracker, 'csv')
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.show_achievements')
+    @patch('sys.argv', ['progress.py', '--achievements'])
+    def test_main_achievements(self, mock_show_achievements, mock_tracker_class):
+        """Test main with --achievements flag."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_show_achievements.assert_called_once_with(mock_tracker)
+    
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.show_tutorials')
+    @patch('sys.argv', ['progress.py', '--tutorials'])
+    def test_main_tutorials(self, mock_show_tutorials, mock_tracker_class):
+        """Test main with --tutorials flag."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        
+        main()
+        
+        mock_tracker_class.assert_called_once()
+        mock_show_tutorials.assert_called_once_with(mock_tracker)
+    
+    @patch('storm_checker.scripts.progress.print_error')
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('sys.argv', ['progress.py'])
+    def test_main_tracker_init_error(self, mock_tracker_class, mock_print_error):
+        """Test main when tracker initialization fails."""
+        mock_tracker_class.side_effect = Exception("Database error")
+        
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        
+        assert exc_info.value.code == 1
+        mock_print_error.assert_called_once_with("Failed to initialize progress tracker: Database error")
+    
+    @patch('storm_checker.scripts.progress.print_info')
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.show_progress')
+    @patch('sys.argv', ['progress.py'])
+    def test_main_keyboard_interrupt(self, mock_show_progress, mock_tracker_class, mock_print_info):
+        """Test main handles KeyboardInterrupt gracefully."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        mock_show_progress.side_effect = KeyboardInterrupt()
+        
+        main()
+        
+        mock_print_info.assert_called_once_with("Progress check cancelled.")
+    
+    @patch('storm_checker.scripts.progress.print_error')
+    @patch('storm_checker.scripts.progress.EnhancedProgressTracker')
+    @patch('storm_checker.scripts.progress.show_progress')
+    @patch('sys.argv', ['progress.py'])
+    def test_main_generic_error(self, mock_show_progress, mock_tracker_class, mock_print_error):
+        """Test main handles generic errors."""
+        mock_tracker = Mock()
+        mock_tracker_class.return_value = mock_tracker
+        mock_show_progress.side_effect = RuntimeError("Something went wrong")
+        
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        
+        assert exc_info.value.code == 1
+        mock_print_error.assert_called_once_with("Error: Something went wrong")

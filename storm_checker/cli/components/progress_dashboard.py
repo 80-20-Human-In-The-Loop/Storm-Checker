@@ -158,8 +158,11 @@ class ProgressDashboard:
         ))
         
         # Find max for scaling
-        max_errors = max(day["errors_fixed"] for day in week_activity)
-        max_errors = max(max_errors, 1)  # Avoid division by zero
+        if week_activity:
+            max_errors = max(day["errors_fixed"] for day in week_activity)
+            max_errors = max(max_errors, 1)  # Avoid division by zero
+        else:
+            max_errors = 1  # Default when no activity
         
         # Render each day
         for day_data in week_activity:
